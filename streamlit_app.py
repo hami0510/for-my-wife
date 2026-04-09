@@ -93,7 +93,7 @@ def get_comprehensive_guide(weeks):
 
 # 3. 사이드바 (날짜 설정 및 마더세이프)
 with st.sidebar:
-    st.markdown("<h3 style='text-align:center; color:#ff6b6b;'>🌿 이레네 대시보드</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align:center; color:#ff6b6b;'>💖 이레 엄마 가이드</h3>", unsafe_allow_html=True)
     
     # 날짜 설정
     lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 4, 9).date())
