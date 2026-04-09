@@ -5,7 +5,7 @@ import requests
 import json
 
 # 1. 설정 및 디자인 (일관된 레이아웃 유지)
-st.set_page_config(page_title="이레 안심 가이드", page_icon="💖", layout="wide")
+st.set_page_config(page_title="이레엄마를 위한 안심 가이드", page_icon="💖", layout="wide")
 
 # 구글 시트 연동 URL
 GAS_URL = "https://script.google.com/macros/s/AKfycbyD3Cs7lzrU-npU976mBQirH1AmHrWRHggDjF8l5mYPFllREHaZ1WUqyZag4viWsmdIJQ/exec"
