@@ -5,7 +5,7 @@ import requests
 import json
 import random
 
-# 1. 설정 및 디자인 (글자색 시인성 강화)
+# 1. 설정 및 디자인 (입력창 시인성 강화)
 st.set_page_config(page_title="이레엄마를 위한 안심 가이드", page_icon="💖", layout="centered")
 
 GAS_URL = "https://script.google.com/macros/s/AKfycbyD3Cs7lzrU-npU976mBQirH1AmHrWRHggDjF8l5mYPFllREHaZ1WUqyZag4viWsmdIJQ/exec"
@@ -18,7 +18,7 @@ def save_to_sheets(type_val, content, status=""):
     except:
         return False
 
-# CSS 보완: 다크모드에서도 글자색이 변하지 않도록 강제 지정
+# CSS 보완: 입력창 내부 글자색 및 배경색 강제 고정
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
@@ -40,6 +40,18 @@ st.markdown("""
     /* 대화 내용 텍스트 강제 고정 */
     [data-testid="stChatMessage"] p, [data-testid="stChatMessage"] span {
         color: #222222 !important;
+    }
+
+    /* ★ 입력창(Chat Input) 글자색 및 배경색 강력 고정 ★ */
+    [data-testid="stChatInput"] textarea {
+        color: #222222 !important; /* 입력 중인 글자색: 진한 검정 */
+        background-color: #ffffff !important; /* 입력창 배경: 흰색 */
+        -webkit-text-fill-color: #222222 !important; /* iOS/Safari용 글자색 고정 */
+    }
+    
+    /* 입력창 플레이스홀더(힌트 문구) 색상 */
+    [data-testid="stChatInput"] textarea::placeholder {
+        color: #888888 !important;
     }
 
     /* 사이드바 스타일 */
@@ -71,11 +83,6 @@ st.markdown("""
     /* 버튼 스타일 */
     .stButton>button { width: 100%; background-color: #ff6b6b; color: #ffffff !important; border: none; border-radius: 8px; height: 42px; font-weight: 600; }
     
-    /* 입력창 스타일 보완 */
-    [data-testid="stChatInput"] textarea {
-        color: #222222 !important;
-    }
-
     @media (max-width: 640px) {
         .status-card { padding: 15px; }
         h2 { font-size: 1.4rem !important; }
@@ -83,7 +90,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. 데이터베이스 및 헬퍼 함수 (기존과 동일)
+# 2. 데이터베이스 및 헬퍼 함수
 bible_verses = [
     ("내가 너를 모태에 짓기 전에 너를 알았고 네가 배에서 나오기 전에 너를 성별하였고...", "예레미야 1:5"),
     ("자식들은 여호와의 기업이요 태의 열매는 그의 상급이로다", "시편 127:3"),
@@ -167,7 +174,7 @@ for m in st.session_state.messages:
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-if prompt := st.chat_input("증상을 물어보거나 대화를 나눠보세요..."):
+if prompt := st.chat_input("질문을 입력하세요..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
