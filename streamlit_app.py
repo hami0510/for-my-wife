@@ -18,7 +18,7 @@ def save_to_sheets(type_val, content, status=""):
     except:
         return False
 
-# 2. CSS: UI 최적화
+# 2. CSS: 성경 구절 가독성 및 레이아웃 최적화
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
@@ -29,12 +29,23 @@ st.markdown("""
         color: #333333 !important;
     }
 
-    .sidebar-title { font-size: 1.4rem; font-weight: 800; color: #ff6b6b; text-align: center; display: block; padding: 10px 0; }
+    .sidebar-title { font-size: 1.4rem; font-weight: 800; color: #ff6b6b; text-align: center; display: block; padding-top: 10px; }
     .sidebar-today { font-size: 0.9rem; font-weight: 500; color: #888888; text-align: center; margin-bottom: 15px; display: block; }
 
     [data-testid="stSidebar"] { background-color: #ffffff !important; border-right: 1px solid #ffe8eb !important; }
     
-    /* 카드 디자인 */
+    /* 성경 구절 박스 보완: 텍스트가 잘리지 않고 가독성 좋게 유지 */
+    .bible-box { 
+        background-color: #fff0f3 !important; padding: 20px; border-radius: 18px; 
+        border-left: 6px solid #ff6b6b; margin-bottom: 25px;
+        word-break: keep-all; /* 단어 단위로 줄바꿈하여 가독성 향상 */
+        line-height: 1.8;
+        font-size: 0.92rem;
+        color: #444444 !important;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .bible-ref { display: block; text-align: right; font-weight: bold; color: #ff6b6b; margin-top: 12px; }
+
     .status-card { 
         background-color: #ffffff !important; padding: 22px; border-radius: 20px; 
         border-top: 6px solid #ff6b6b; box-shadow: 0 10px 25px rgba(255, 107, 107, 0.12);
@@ -43,7 +54,6 @@ st.markdown("""
     .guide-header { color: #ff6b6b !important; font-weight: 700; font-size: 1.2rem; margin-bottom: 12px; }
     .guide-content { font-size: 1rem; line-height: 1.8; color: #444444 !important; }
 
-    /* 입력창 */
     div[data-testid="stChatInput"] {
         background-color: #ffffff !important; border-radius: 25px !important; 
         padding: 5px 15px !important; border: 2px solid #ffe3e3 !important;
@@ -51,43 +61,67 @@ st.markdown("""
     }
     div[data-testid="stChatInput"] textarea { color: #333333 !important; -webkit-text-fill-color: #333333 !important; }
 
-    .bible-box { background-color: #fff0f3 !important; padding: 18px; border-radius: 15px; border-left: 5px solid #ff6b6b; margin-bottom: 22px; }
     .sb-box { background-color: #ffffff !important; border: 1px solid #ffe3e3; border-radius: 15px; padding: 18px; text-align: center; margin-bottom: 15px; }
     .stButton>button { width: 100%; background-color: #ff6b6b !important; color: #ffffff !important; border-radius: 12px; height: 48px; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. 데이터 및 가이드 로직 (아빠 미션 데이터 포함)
-bible_verses = [
-    ("내가 너를 모태에 짓기 전에 너를 알았고...", "예레미야 1:5"),
-    ("자식들은 여호와의 기업이요...", "시편 127:3"),
-    ("여인이 어찌 그 젖 먹는 자식을 잊겠으며...", "이사야 49:15"),
-    ("주께서 나의 모태에서 나를 만드셨나이다", "시편 139:13"),
-    ("여호와는 너를 지키시는 이시라...", "시편 121:5")
+# 3. 태교에 도움이 되는 31가지 성경 구절 리스트 (매달 순환)
+bible_list = [
+    ("내가 너를 모태에 짓기 전에 너를 알았고 네가 배에서 나오기 전에 너를 성별하였고 너를 여러 나라의 선지자로 세웠노라 하시기로", "예레미야 1:5"),
+    ("보라 자식들은 여호와의 기업이요 태의 열매는 그의 상급이로다", "시편 127:3"),
+    ("너의 하나님 여호와가 너의 가운데에 계시니 그는 구원을 베푸실 전능자이시라 그가 너로 말미암아 기쁨을 이기지 못하시며 너를 잠잠히 사랑하시며 너로 말미암아 즐거이 부르며 기뻐하시리라 하리라", "스바냐 3:17"),
+    ("여호와는 너를 지키시는 이시라 여호와께서 네 오른쪽에서 네 그늘이 되시나니 낮의 해가 너를 상하게 하지 아니하며 밤의 달도 너를 해치지 아니하리로다", "시편 121:5-6"),
+    ("주께서 내 내장을 지으시며 나의 모태에서 나를 만드셨나이다 내가 주께 감사함은 나를 지으심이 심히 기묘하심이라", "시편 139:13-14"),
+    ("평강의 주께서 친히 때마다 일마다 너희에게 평강을 주시고 주께서 너희 모든 사람과 함께 하시기를 원하노라", "데살로니가후서 3:16"),
+    ("아무 것도 염려하지 말고 다만 모든 일에 기도와 간구로, 너희 구할 것을 감사함으로 하나님께 아뢰라 그리하면 모든 지각에 뛰어난 하나님의 평강이 그리스도 예수 안에서 너희 마음과 생각을 지키시리라", "빌립보서 4:6-7"),
+    ("여호와는 네게 복을 주시고 너를 지키시기를 원하며 여호와는 그의 얼굴을 네게 비추사 은혜 베푸시기를 원하며 여호와는 그 얼굴을 네게로 향하여 드사 평강 주시기를 원하노라 할지니라 하라", "민수기 6:24-26"),
+    ("너희는 마음을 다하여 여호와를 신뢰하고 네 명철을 의지하지 말라 너는 범사에 그를 인정하라 그리하면 네 길을 지도하시리라", "잠언 3:5-6"),
+    ("하나님이 우리에게 주신 것은 두려워하는 마음이 아니요 오직 능력과 사랑과 절제하는 마음이니", "디모데후서 1:7"),
+    ("두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라 내가 너를 굳세게 하리라 참으로 너를 도와 주리라 참으로 나의 의로운 오른손으로 너를 붙들리라", "이사야 41:10"),
+    ("내게 능력 주시는 자 안에서 내가 모든 것을 할 수 있느니라", "빌립보서 4:13"),
+    ("강하고 담대하라 두려워하지 말며 놀라지 말라 네가 어디로 가든지 네 하나님 여호와가 너와 함께 하느니라 하시니라", "여호수아 1:9"),
+    ("우리가 알거니와 하나님을 사랑하는 자 곧 그의 뜻대로 부르심을 입은 자들에게는 모든 것이 합력하여 선을 이루느니라", "로마서 8:28"),
+    ("구하라 그리하면 너희에게 주실 것이요 찾으라 그리하면 찾아낼 것이요 문을 두드리라 그리하면 너희에게 열릴 것이니", "마태복음 7:7"),
+    ("수고하고 무거운 짐 진 자들아 다 내게로 오라 내가 너희를 쉬게 하리라", "마태복음 11:28"),
+    ("오직 여호와를 앙망하는 자는 새 힘을 얻으리니 독수리가 날개치며 올라감 같을 것이요 달음박질하여도 곤비하지 아니하겠고 걸어가도 피곤하지 아니하리로다", "이사야 40:31"),
+    ("여호와를 기뻐하는 것이 너희의 힘이니라", "느헤미야 8:10"),
+    ("사람이 마음으로 자기의 길을 계획할지라도 그의 걸음을 인도하시는 이는 여호와시니라", "잠언 16:9"),
+    ("항상 기뻐하라 쉬지 말고 기도하라 범사에 감사하라 이것이 그리스도 예수 안에서 너희를 향하신 하나님의 뜻이니라", "데살로니가전서 5:16-18"),
+    ("주의 말씀은 내 발에 등이요 내 길에 빛이니이다", "시편 119:105"),
+    ("너희 중에 누구든지 지혜가 부족하거든 모든 사람에게 후히 주시고 꾸짖지 아니하시는 하나님께 구하라 그리하면 주시리라", "야고보서 1:5"),
+    ("하나님은 우리의 피난처시요 힘이시니 환난 중에 만날 큰 도움이시라", "시편 46:1"),
+    ("믿음은 바라는 것들의 실상이요 보이지 않는 것들의 증거니", "히브리서 11:1"),
+    ("사랑은 오래 참고 사랑은 온유하며 시기하지 아니하며 사랑은 자랑하지 아니하며 교만하지 아니하며", "고린도전서 13:4"),
+    ("너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요", "마태복음 5:14"),
+    ("나의 가는 길을 오직 그가 아시나니 그가 나를 단련하신 후에는 내가 정금 같이 나오리라", "욥기 23:10"),
+    ("눈물을 흘리며 씨를 뿌리는 자는 기쁨으로 거두리로다", "시편 126:5"),
+    ("여호와는 나의 목자시니 내게 부족함이 없으리로다", "시편 23:1"),
+    ("네 시작은 미약하였으나 네 나중은 심히 창대하리라", "욥기 8:7"),
+    ("오늘 내가 네게 명하는 이 말씀을 너는 마음에 새기고 네 자녀에게 부지런히 가르치며...", "신명기 6:6-7")
 ]
 
+# 4. 가이드 데이터
 def get_comprehensive_guide(weeks):
     guides = {
-        0: {"baby": "새 생명을 맞이할 준비를 하고 있어요.", "mom": "엽산 복용을 시작하고 몸을 따뜻하게 하세요.", "dad": "함께 건강한 생활 습관을 만들고, 금주를 실천해 주세요.", "caution": "약물 복용 전 반드시 전문가와 상의하세요."},
-        4: {"baby": "양귀비 씨앗 크기! 세포 분열이 활발해요.", "mom": "착상 시기이니 무리하지 말고 푹 쉬세요.", "dad": "임신 축하 꽃 한 송이와 따뜻한 축하 인사를 건네보세요.", "caution": "대중교통 이용 시 가방 고리를 활용해 배려받으세요."},
-        8: {"baby": "라즈베리 크기! 심장 소리를 들을 수 있어요.", "mom": "입덧이 가장 심할 시기예요. 과일이나 차가운 음식이 도움돼요.", "dad": "음식 냄새를 차단해주고, 아내가 먹고 싶어 하는 것을 바로 구해주세요.", "caution": "심한 복통이나 출혈 시 즉시 병원 방문!"},
-        12: {"baby": "라임 크기! 이제 제법 사람의 모습을 갖췄어요.", "mom": "기형아 검사 시기입니다. 마음을 편하게 가지세요.", "dad": "검진 날 꼭 동행해서 아기의 첫 움직임을 함께 보세요.", "caution": "감기약 등 약물 복용 주의!"},
-        16: {"baby": "아보카도 크기! 뼈가 단단해지고 소리를 들어요.", "mom": "철분제 복용 시작! 수분 섭취를 늘려 변비를 예방하세요.", "dad": "아내의 배에 귀를 대고 이레에게 아빠 목소리를 들려주세요.", "caution": "기립성 저혈압(어지럼증)을 조심하세요."},
-        20: {"baby": "바나나 길이! 태동이 느껴지기 시작해요.", "mom": "체중이 늘어 허리가 아플 수 있어요. 가벼운 산책을 권해요.", "dad": "태동이 느껴질 때 같이 손을 얹어 이레와 교감해 주세요.", "caution": "무거운 물건을 드는 것은 피해야 합니다."},
-        24: {"baby": "옥수수 크기! 임당 검사가 있는 주예요.", "mom": "단 음식 섭취를 조절하고 산책을 생활화하세요.", "dad": "부종이 심해질 수 있으니 자기 전 다리 마사지를 꼭 해주세요.", "caution": "배 뭉침이 잦다면 즉시 휴식을 취하세요."}
+        0: {"baby": "새 생명을 맞이할 준비를 하고 있어요.", "mom": "엽산 복용을 시작하고 몸을 따뜻하게 하세요.", "dad": "함께 건강한 생활 습관을 만들고, 금주를 실천해 주세요.", "caution": "약물 복용 전 전문가와 상담하세요."},
+        4: {"baby": "양귀비 씨앗 크기! 세포 분열이 활발해요.", "mom": "착상 시기이니 무리하지 말고 푹 쉬세요.", "dad": "축하 꽃 한 송이와 따뜻한 포옹을 선물하세요.", "caution": "임신 초기이므로 안정이 가장 중요합니다."},
+        8: {"baby": "라즈베리 크기! 심장 소리를 들을 수 있어요.", "mom": "입덧이 심할 때입니다. 과일이나 크래커가 도움돼요.", "dad": "아내가 힘들어하는 냄새를 파악하고 환기를 신경 써주세요.", "caution": "출혈이나 심한 복통 시 병원에 가야 합니다."},
+        12: {"baby": "라임 크기! 이제 사람의 모습을 갖췄어요.", "mom": "기형아 검사 시기입니다. 긍정적인 마음을 가지세요.", "dad": "정기 검진에 동행하여 아기의 첫 초음파를 함께 보세요.", "caution": "약물 및 카페인 섭취를 엄격히 제한하세요."}
     }
     current = max([w for w in guides.keys() if w <= weeks] + [0])
     return guides[current]
 
-# 4. 사이드바
+# 5. 사이드바 (날짜별 성경 구절 로직 반영)
 with st.sidebar:
     st.markdown('<span class="sidebar-title">💖 이레 엄마 가이드</span>', unsafe_allow_html=True)
     now = datetime.now()
     st.markdown(f'<span class="sidebar-today">{now.strftime("%Y년 %m월 %d일")} ({["월","화","수","목","금","토","일"][now.weekday()]})</span>', unsafe_allow_html=True)
     
-    random.seed(now.strftime("%Y%m%d"))
-    verse, ref = random.choice(bible_verses)
-    st.markdown(f'<div class="bible-box">"{verse}"<br><span style="display:block; text-align:right; font-weight:bold; color:#ff6b6b;">- {ref} -</span></div>', unsafe_allow_html=True)
+    # [수정] 매일 날짜에 맞춰 구절이 바뀌도록 설정 (31일 기준 순환)
+    day_index = (now.day - 1) % len(bible_list)
+    verse, ref = bible_list[day_index]
+    st.markdown(f'<div class="bible-box">"{verse}"<span class="bible-ref">- {ref} -</span></div>', unsafe_allow_html=True)
 
     lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 4, 9).date())
     due_date = lmp_date + timedelta(days=280)
@@ -103,63 +137,42 @@ with st.sidebar:
         if st.button("기록 전송"):
             if save_to_sheets("컨디션", memo, cond): st.toast("기록 완료! ❤️")
 
-    with st.expander("💌 태교 편지함"):
-        letter = st.text_area("이레에게...", key="la")
-        if st.button("편지 저장"):
-            if save_to_sheets("태교편지", letter): st.success("저장 완료! ❤️")
-
     st.divider()
     st.markdown("<div style='text-align:center; color:#ff6b6b; font-weight:800;'>📞 마더세이프 1588-7309</div>", unsafe_allow_html=True)
 
-# 5. 메인 화면 (아빠 역할 카드 복구)
+# 6. 메인 화면
 st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:30px;'>💖 이레 안심 가이드</h2>", unsafe_allow_html=True)
 
 guide = get_comprehensive_guide(current_weeks)
-
-# 주차별 상태 가이드 카드
 st.markdown(f"""
 <div class="status-card">
     <div class="guide-header">👶 {current_weeks}주차 이레 상태</div>
-    <div class="guide-content">
-        {guide['baby']}<br><br>
-        <b>엄마 준비:</b> {guide['mom']}
-    </div>
-    <div style="color:#ff4757; font-weight:700; margin-top:10px;">⚠️ 주의사항: {guide['caution']}</div>
+    <div class="guide-content">{guide['baby']}<br><br><b>엄마 준비:</b> {guide['mom']}</div>
+    <div style="color:#ff4757; font-weight:700; margin-top:10px;">⚠️ {guide['caution']}</div>
 </div>
-""", unsafe_allow_html=True)
-
-# [복구된 부분] 아빠의 역할 카드
-st.markdown(f"""
 <div class="status-card">
     <div class="guide-header">🙋‍♂️ 이레 아빠의 역할</div>
-    <div class="guide-content">
-        이번 주 아빠가 해줘야 할 미션: <b>"{guide['dad']}"</b><br><br>
-        이레 엄마, 오늘도 이레를 품어주느라 정말 고생 많았어요. 아빠가 항상 곁에서 응원할게요. 사랑해요!
-    </div>
+    <div class="guide-content">이번 주 미션: <b>"{guide['dad']}"</b><br><br>이레 엄마, 오늘도 고생 많았어요. 사랑해요!</div>
 </div>
 """, unsafe_allow_html=True)
 
 st.divider()
 
-# 채팅 인터페이스
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차네. 오늘 컨디션은 어때? 무엇이든 물어봐. 🥰"}]
+    st.session_state.messages = [{"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차네. 오늘 기분은 어때? 궁금한 건 무엇이든 물어봐요. 🥰"}]
 
 for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"])
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-if prompt := st.chat_input("음식, 음료, 약물 등 무엇이든 물어보세요..."):
+if prompt := st.chat_input("증상, 음식, 약물 등 무엇이든 물어보세요..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
         sys_msg = {
             "role": "system", 
-            "content": f"""너는 산부인과 전문의이자 이레 아빠야. 아내({current_weeks}주차)에게 답할 때 다음 규칙을 지켜줘:
-            1. [음식/음료/약물 검수] 절대 금지는 [❌ 절대 금지]로 강력 경고하고 대체품 추천. 주의는 [⚠️ 주의]로 적정량 안내.
-            2. 마더세이프(MotherSafe) 기반으로 정확하게 답할 것.
-            3. 항상 다정하게 말하고 마지막엔 "사랑해"라고 할 것."""
+            "content": f"산부인과 전문의 이레 아빠야. 현재 {current_weeks}주차인 아내에게 다정하게 답해줘. 먹거리 질문 시 ⭕, ❌, ⚠️로 직관적으로 답하고 사랑한다고 해줘."
         }
         res = client.chat.completions.create(model="gpt-4o", messages=[sys_msg] + st.session_state.messages)
         msg = res.choices[0].message.content
