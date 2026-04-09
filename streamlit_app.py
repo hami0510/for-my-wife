@@ -6,7 +6,7 @@ import json
 import random
 
 # 1. 페이지 설정
-st.set_page_config(page_title="이레 엄마를 위한 안심 가이드", page_icon="💖", layout="centered")
+st.set_page_config(page_title="이레엄마를 위한 안심 가이드", page_icon="💖", layout="centered")
 
 GAS_URL = "https://script.google.com/macros/s/AKfycbyD3Cs7lzrU-npU976mBQirH1AmHrWRHggDjF8l5mYPFllREHaZ1WUqyZag4viWsmdIJQ/exec"
 
@@ -18,38 +18,46 @@ def save_to_sheets(type_val, content, status=""):
     except:
         return False
 
-# 2. CSS: 사이드바 타이틀 중앙 정렬 및 입력창 레이아웃 혁신
+# 2. CSS 보완 (사이드바 타이틀 중앙 정렬 및 입력창 레이아웃 수정)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
     
-    /* 전체 배경 및 폰트 */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stSidebar"] {
         font-family: 'Noto Sans KR', sans-serif;
         background-color: #fff5f7 !important;
         color: #333333 !important;
     }
 
-    /* [1] 사이드바 타이틀 중앙 정렬 및 스타일 */
+    /* 사이드바 타이틀 중앙 정렬 */
     .sidebar-title {
         font-size: 1.4rem;
         font-weight: 800;
         color: #ff6b6b;
         text-align: center;
         padding-top: 10px;
-        padding-bottom: 20px;
+        padding-bottom: 5px;
         display: block;
         width: 100%;
     }
 
-    /* 사이드바 박스 디자인 */
+    /* 사이드바 오늘 날짜 스타일 */
+    .sidebar-today {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #888888;
+        text-align: center;
+        margin-bottom: 15px;
+        display: block;
+        width: 100%;
+    }
+
     [data-testid="stSidebar"] {
         background-color: #ffffff !important;
         border-right: 1px solid #ffe8eb !important;
     }
 
-    /* [2] 입력창(Chat Input) 레이아웃 수정 */
-    /* 입력창이 있는 하단 바 전체 배경 */
+    /* 입력창(Chat Input) 레이아웃 수정 */
     div[data-testid="stChatInput"] {
         background-color: #ffffff !important;
         border-radius: 25px !important;
@@ -59,39 +67,31 @@ st.markdown("""
         margin-bottom: 20px !important;
     }
     
-    /* 입력창 내부 텍스트 영역 */
     div[data-testid="stChatInput"] textarea {
         background-color: transparent !important;
         color: #333333 !important;
         border: none !important;
         font-size: 1rem !important;
-        line-height: 1.5 !important;
         -webkit-text-fill-color: #333333 !important;
     }
 
-    /* 메인 카드 및 채팅 버블 */
     .status-card { 
         background-color: #ffffff !important; padding: 25px; border-radius: 22px; 
         border-top: 6px solid #ff6b6b; 
         box-shadow: 0 10px 30px rgba(255, 107, 107, 0.1);
-        margin-bottom: 25px; color: #333333 !important;
+        margin-bottom: 25px;
     }
-    .guide-header { color: #ff6b6b !important; font-weight: 700; font-size: 1.2rem; margin-bottom: 12px; }
-    .guide-content { font-size: 1rem; line-height: 1.8; color: #444444 !important; }
 
     [data-testid="stChatMessage"] {
         background-color: #ffffff !important;
         border: 1px solid #ffe8eb !important;
         border-radius: 20px !important;
-        padding: 15px !important;
     }
 
     .bible-box { 
         background-color: #fff0f3 !important; padding: 20px; border-radius: 18px; 
         border-left: 6px solid #ff6b6b; margin-bottom: 25px; font-size: 0.95rem; 
-        color: #555555 !important; line-height: 1.7;
     }
-    .bible-ref { font-weight: bold; color: #ff6b6b !important; display: block; margin-top: 10px; text-align: right; }
     
     .sb-box {
         background-color: #ffffff !important; border: 1px solid #ffe3e3; 
@@ -100,17 +100,12 @@ st.markdown("""
 
     .stButton>button { 
         width: 100%; background-color: #ff6b6b !important; color: #ffffff !important; 
-        border-radius: 12px; height: 50px; font-weight: 700; font-size: 1rem;
-    }
-    
-    @media (max-width: 640px) {
-        .sidebar-title { font-size: 1.2rem; }
-        .status-card { padding: 20px; }
+        border-radius: 12px; height: 50px; font-weight: 700;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. 데이터 로직
+# 3. 데이터 로직 및 가이드 (기존과 동일)
 bible_verses = [
     ("내가 너를 모태에 짓기 전에 너를 알았고 네가 배에서 나오기 전에 너를 성별하였고...", "예레미야 1:5"),
     ("자식들은 여호와의 기업이요 태의 열매는 그의 상급이로다", "시편 127:3"),
@@ -129,21 +124,30 @@ def get_comprehensive_guide(weeks):
     current = max([w for w in guides.keys() if w <= weeks] + [0])
     return guides[current]
 
-# 4. 사이드바 (중앙 정렬 타이틀 적용)
+# 4. 사이드바 (날짜 및 요일 추가)
 with st.sidebar:
-    # 타이틀 중앙 정렬 적용
+    # 타이틀 중앙 정렬
     st.markdown('<span class="sidebar-title">💖 이레 엄마 가이드</span>', unsafe_allow_html=True)
     
+    # [추가] 오늘 날짜 표시 (예: 2026년 4월 9일 목요일)
+    weekday_map = ['월', '화', '수', '목', '금', '토', '일']
+    now = datetime.now()
+    today_str = now.strftime("%Y년 %m월 %d일")
+    weekday_str = weekday_map[now.weekday()]
+    st.markdown(f'<span class="sidebar-today">{today_str} ({weekday_str})</span>', unsafe_allow_html=True)
+    
+    # 성경 구절
     random.seed(datetime.now().strftime("%Y%m%d"))
     verse, ref = random.choice(bible_verses)
     st.markdown(f'<div class="bible-box">"{verse}"<span class="bible-ref">- {ref} -</span></div>', unsafe_allow_html=True)
 
+    # 날짜 입력 및 주수 계산
     lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 4, 9).date())
     due_date = lmp_date + timedelta(days=280)
-    today = datetime.now().date()
-    total_days = max(0, (today - lmp_date).days)
+    today_date = now.date()
+    total_days = max(0, (today_date - lmp_date).days)
     current_weeks, current_days = total_days // 7, total_days % 7
-    d_day = (due_date - today).days
+    d_day = (due_date - today_date).days
 
     st.markdown(f"""
         <div class="sb-box">
@@ -167,7 +171,7 @@ with st.sidebar:
     st.divider()
     st.markdown("<div style='text-align:center; color:#ff6b6b; font-weight:800; font-size:1.1rem;'>📞 마더세이프<br>1588-7309</div>", unsafe_allow_html=True)
 
-# 5. 메인 화면
+# 5. 메인 화면 및 챗봇 (기존 로직 유지)
 st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:35px;'>💖 이레 안심 가이드</h2>", unsafe_allow_html=True)
 
 guide = get_comprehensive_guide(current_weeks)
