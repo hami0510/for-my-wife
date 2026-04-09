@@ -1,43 +1,79 @@
 import streamlit as st
 from openai import OpenAI
 
-# 페이지 설정
-st.set_page_config(page_title="햇살이 엄마를 위한 안심 가이드", page_icon="💖")
+# 1. 페이지 설정
+st.set_page_config(page_title="태하 엄마를 위한 안심 가이드", page_icon="💖")
 
-# 디자인 테마
+# 2. 디자인 테마 (핑크색 포인트)
 st.markdown("""
     <style>
     .stApp { background-color: #fffafb; }
-    h1 { color: #ff6b6b; }
+    h1 { color: #ff6b6b; font-family: 'Nanum Gothic', sans-serif; }
     .stChatMessage { border-radius: 15px; }
+    .sidebar-text { font-size: 14px; color: #555; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("💖 아내를 위한 안심 가이드")
-st.write("마더세이프 정보를 기반으로 다정하게 답해드려요.")
-
-# 사이드바 설정
+# 3. 사이드바 구성 (주차별 정보 섹션)
 with st.sidebar:
-    st.header("📌 꼭 기억하세요")
-    st.write("📞 마더세이프: 1588-7309")
+    st.header("❤️ 태하네 행복 가이드")
+    st.write("태하 엄마를 위해 아빠가 만든 안심가이드")
     st.divider()
-    st.info("이 서비스는 남편이 아내를 위해 만든 개인용 가이드입니다. 정확한 의학적 판단은 반드시 주치의와 상의하세요.")
 
-# API 키 설정 (Streamlit Secrets에서 불러옴)
+    # 주차별 정보 섹션
+    st.subheader("📅 주차별 안심 정보")
+    week = st.selectbox(
+        "현재 임신 주차를 선택하세요",
+        [f"{i}주차" for i in range(1, 13)] + ["중기(13~27주)", "후기(28주~ )"]
+    )
+
+    # 주차별 팁 데이터
+    week_info = {
+        "1주차": "임신 준비기입니다. 엽산을 꼭 챙겨 드세요!",
+        "2주차": "배란기예요. 편안한 마음가짐이 가장 중요합니다.",
+        "3주차": "수정란이 자리를 잡는 시기예요. 무리한 운동은 피해주세요.",
+        "4주차": "테스트기로 확인 가능한 시기! 아기집을 기다려봐요.",
+        "5주차": "심장 소리를 들을 수 있어요. 입덧이 시작될 수 있으니 조금씩 자주 드세요.",
+        "6주차": "아기의 뇌와 중추신경이 발달해요. 약물 복용에 특히 주의하세요.",
+        "7주차": "손발이 형성되는 시기예요. 충분한 휴식이 필요합니다.",
+        "8주차": "태아의 움직임이 시작돼요. 아빠의 다정한 목소리를 들려주세요.",
+        "9주차": "얼굴 윤곽이 잡혀요. 변비가 생길 수 있으니 수분을 충분히 섭취하세요.",
+        "10주차": "기관 형성이 거의 완료돼요. 스트레스는 금물!",
+        "11주차": "입덧이 절정일 수 있어요. 먹을 수 있는 음식을 찾아 조금씩 드세요.",
+        "12주차": "1차 기형아 검사 시기예요. 이제 안정기에 접어들고 있어요!",
+        "중기(13~27주)": "입덧이 가라앉고 배가 나오기 시작해요. 철분제를 꼭 챙겨 드세요.",
+        "후기(28주~ )": "숨이 차고 몸이 무거워져요. 출산 준비물을 체크해 볼까요?"
+    }
+    
+    st.info(week_info[week])
+    
+    st.divider()
+    st.subheader("📌 꼭 기억하세요")
+    st.write("📞 마더세이프: 1588-7309")
+    st.caption("이 앱은 남편이 아내를 위해 만든 보조 가이드입니다. 정확한 의학적 판단은 주치의와 상의하세요.")
+
+# 4. 메인 화면 타이틀
+st.title("💖 태하 엄마를 위해 아빠가 만든 안심가이드")
+st.write("궁금한 음식이나 약물, 증상을 물어보세요. 마더세이프 정보를 기반으로 답해드려요.")
+
+# 5. OpenAI API 설정
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "system", "content": "너는 임산부 약물 상담 전문기관 '마더세이프'의 정보를 숙지한 다정한 상담사야. 사용자는 너의 소중한 아내야. 말투는 항상 남편처럼 따뜻하고 부드럽게 '해요체'를 써줘. 음식, 약물 질문에 대해 마더세이프 기준을 충실히 답해주고, 끝에는 항상 '사랑해' 혹은 '우리 아기랑 같이 힘내자' 같은 응원을 잊지 마."}
+        {
+            "role": "system", 
+            "content": "너는 '마더세이프' 가이드를 숙지한 임신 전문 상담사야. 사용자는 너의 아내 '태하 엄마'야. 너는 태하 아빠처럼 아주 다정하고 따뜻하게 말해야 해. 말투는 '해요체'를 쓰고, 음식/약물 질문에는 마더세이프 기준을 엄격히 따르되 답변 끝에는 항상 태하 엄마를 향한 사랑의 메시지나 응원을 덧붙여줘."
+        }
     ]
 
-# 채팅 인터페이스
+# 6. 채팅 로직
 for message in st.session_state.messages:
     if message["role"] != "system":
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-if prompt := st.chat_input("오늘 궁금한 게 있나요?"):
+if prompt := st.chat_input("오늘 태하랑 엄마 컨디션은 어때요?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
