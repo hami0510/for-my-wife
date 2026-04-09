@@ -7,13 +7,30 @@ import json
 # 1. 설정 및 디자인 (일관된 레이아웃 유지)
 st.set_page_config(page_title="이레엄마를 위한 안심 가이드", page_icon="💖", layout="wide")
 
-# 구글 시트 연동 URL
+# 구글 시트 연동 URL (복사하신 주소 그대로 유지)
 GAS_URL = "https://script.google.com/macros/s/AKfycbyD3Cs7lzrU-npU976mBQirH1AmHrWRHggDjF8l5mYPFllREHaZ1WUqyZag4viWsmdIJQ/exec"
 
 def save_to_sheets(type_val, content, status=""):
-    data = {"type": type_val, "content": content, "status": status}
-    try: requests.post(GAS_URL, data=json.dumps(data), timeout=5)
-    except: pass
+    """구글 앱스 스크립트로 데이터를 안전하게 전송 (Header 추가 버전)"""
+    data = {
+        "type": type_val,
+        "content": content,
+        "status": status
+    }
+    try:
+        # 전송 시 JSON 헤더를 명시적으로 추가하여 구글 서버와의 호환성을 높임
+        response = requests.post(
+            GAS_URL, 
+            data=json.dumps(data), 
+            headers={'Content-Type': 'application/json'},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return True
+        else:
+            return False
+    except:
+        return False
 
 st.markdown("""
     <style>
@@ -42,52 +59,15 @@ st.markdown("""
 
 # 2. 주차별 상세 가이드 데이터베이스 (LMP 기준)
 def get_comprehensive_guide(weeks):
-    # 주차별 세분화된 정보
     guides = {
-        0: {
-            "baby": "새 생명을 맞이할 준비를 하고 있어요.",
-            "mom": "임신 준비기입니다. 몸을 따뜻하게 유지하고 엽산 복용을 시작하세요.",
-            "dad": "함께 금주하고 아내의 컨디션을 세심히 살펴주세요.",
-            "caution": "약물 복용 전 반드시 전문가와 상의하세요."
-        },
-        4: {
-            "baby": "양귀비 씨앗 크기! 세포 분열이 활발해요.",
-            "mom": "착상 시기라 무리한 운동은 금물입니다. 충분한 휴식을 취하세요.",
-            "dad": "임신 테스트기 확인 후, 따뜻한 축하와 꽃 한 송이를 선물해 보세요.",
-            "caution": "대중교통 이용 시 가방 고리를 활용해 배려받으세요."
-        },
-        8: {
-            "baby": "라즈베리 크기! 심장 소리를 들을 수 있어요.",
-            "mom": "입덧이 가장 심해지는 시기입니다. 차가운 음식이나 신 과일이 도움이 돼요.",
-            "dad": "집안 음식 냄새를 차단해주고, 아내가 먹고 싶어 하는 것을 바로 구해주세요.",
-            "caution": "출혈이나 심한 복통이 있다면 즉시 병원을 방문하세요."
-        },
-        12: {
-            "baby": "라임 크기! 이제 제법 사람의 모습을 갖췄어요.",
-            "mom": "기형아 검사 시기입니다. 정서적 안정이 가장 중요해요.",
-            "dad": "초음파 검사에 꼭 동행해서 아기의 첫 움직임을 함께 보세요.",
-            "caution": "기초 체온이 높아 감기로 오해하기 쉬우니 약 복용 주의!"
-        },
-        16: {
-            "baby": "아보카도 크기! 뼈가 단단해지고 소리를 들어요.",
-            "mom": "철분제 복용 시작! 변비가 올 수 있으니 수분 섭취를 늘리세요.",
-            "dad": "아내의 배에 귀를 대고 이레에게 아빠 목소리를 들려주세요.",
-            "caution": "갑작스러운 기립성 저혈압(어지럼증)을 조심하세요."
-        },
-        20: {
-            "baby": "바나나 길이! 태동이 느껴지기 시작합니다.",
-            "mom": "체중이 급격히 늘 수 있으니 가벼운 산책을 생활화하세요.",
-            "dad": "태동이 느껴질 때 같이 손을 얹어 교감해 주세요.",
-            "caution": "임신 중기지만 무거운 물건을 드는 것은 피해야 합니다."
-        },
-        24: {
-            "baby": "옥수수 크기! 빛과 소리에 반응합니다.",
-            "mom": "임신성 당뇨 검사가 있습니다. 단 음식 섭취를 조절하세요.",
-            "dad": "허리 통증이 심해질 시기니 자기 전 다리 마사지를 꼭 해주세요.",
-            "caution": "배 뭉침이 잦다면 즉시 하던 일을 멈추고 쉬어야 합니다."
-        }
+        0: {"baby": "새 생명을 맞이할 준비를 하고 있어요.", "mom": "임신 준비기입니다. 몸을 따뜻하게 유지하고 엽산 복용을 시작하세요.", "dad": "함께 금주하고 아내의 컨디션을 세심히 살펴주세요.", "caution": "약물 복용 전 반드시 전문가와 상의하세요."},
+        4: {"baby": "양귀비 씨앗 크기! 세포 분열이 활발해요.", "mom": "착상 시기라 무리한 운동은 금물입니다. 충분한 휴식을 취하세요.", "dad": "임신 테스트기 확인 후, 따뜻한 축하와 꽃 한 송이를 선물해 보세요.", "caution": "대중교통 이용 시 가방 고리를 활용해 배려받으세요."},
+        8: {"baby": "라즈베리 크기! 심장 소리를 들을 수 있어요.", "mom": "입덧이 가장 심해지는 시기입니다. 차가운 음식이나 신 과일이 도움이 돼요.", "dad": "집안 음식 냄새를 차단해주고, 아내가 먹고 싶어 하는 것을 바로 구해주세요.", "caution": "출혈이나 심한 복통이 있다면 즉시 병원을 방문하세요."},
+        12: {"baby": "라임 크기! 이제 제법 사람의 모습을 갖췄어요.", "mom": "기형아 검사 시기입니다. 정서적 안정이 가장 중요해요.", "dad": "초음파 검사에 꼭 동행해서 아기의 첫 움직임을 함께 보세요.", "caution": "기초 체온이 높아 감기로 오해하기 쉬우니 약 복용 주의!"},
+        16: {"baby": "아보카도 크기! 뼈가 단단해지고 소리를 들어요.", "mom": "철분제 복용 시작! 변비가 올 수 있으니 수분 섭취를 늘리세요.", "dad": "아내의 배에 귀를 대고 이레에게 아빠 목소리를 들려주세요.", "caution": "갑작스러운 기립성 저혈압(어지럼증)을 조심하세요."},
+        20: {"baby": "바나나 길이! 태동이 느껴지기 시작합니다.", "mom": "체중이 급격히 늘 수 있으니 가벼운 산책을 생활화하세요.", "dad": "태동이 느껴질 때 같이 손을 얹어 교감해 주세요.", "caution": "임신 중기지만 무거운 물건을 드는 것은 피해야 합니다."},
+        24: {"baby": "옥수수 크기! 빛과 소리에 반응합니다.", "mom": "임신성 당뇨 검사가 있습니다. 단 음식 섭취를 조절하세요.", "dad": "허리 통증이 심해질 시기니 자기 전 다리 마사지를 꼭 해주세요.", "caution": "배 뭉침이 잦다면 즉시 하던 일을 멈추고 쉬어야 합니다."}
     }
-    # 가장 가까운 과거 주차 정보 매칭
     current = max([w for w in guides.keys() if w <= weeks] + [0])
     return guides[current]
 
@@ -114,17 +94,21 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     with st.expander("🌡️ 오늘 엄마 컨디션 기록"):
-        cond = st.select_slider("상태", options=["힘듦", "보통", "좋음"], label_visibility="collapsed")
-        memo = st.text_input("메모", placeholder="아빠에게 남길 말")
-        if st.button("구글 시트 전송"):
-            save_to_sheets("컨디션", memo, cond)
-            st.toast("저장되었습니다! ❤️")
+        cond = st.select_slider("상태", options=["힘듦", "보통", "좋음"], key="cond_slider", label_visibility="collapsed")
+        memo = st.text_input("메모", placeholder="아빠에게 남길 말", key="cond_memo")
+        if st.button("구글 시트 전송", key="btn_cond"):
+            if save_to_sheets("컨디션", memo, cond):
+                st.toast("이레 아빠 시트에 기록 완료! ❤️")
+            else:
+                st.error("전송에 실패했어요. URL과 시트 권한을 확인해주세요.")
 
     with st.expander("💌 태교 편지함"):
-        letter = st.text_area("이레에게...", placeholder="소중한 기록을 남겨보세요.")
-        if st.button("기록 저장"):
-            save_to_sheets("태교편지", letter)
-            st.success("저장 완료!")
+        letter = st.text_area("이레에게...", placeholder="소중한 기록을 남겨보세요.", key="letter_area")
+        if st.button("기록 저장", key="btn_letter"):
+            if save_to_sheets("태교편지", letter):
+                st.success("소중한 기록이 저장되었습니다! ❤️")
+            else:
+                st.error("저장 실패. 앱스 스크립트 설정을 확인해주세요.")
 
     st.divider()
     st.markdown("<div style='text-align:center; font-size:0.8rem; color:gray;'>임산부 약물/음식 상담</div>", unsafe_allow_html=True)
@@ -162,9 +146,9 @@ with col2:
 
 st.divider()
 
-# 안심 챗봇 (페르소나 강화)
+# 안심 챗봇
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차에 맞는 맞춤 상담을 준비했어. 궁금한 게 있니? 🥰"}]
+    st.session_state.messages = [{"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차에 맞는 맞춤 상담을 준비했어. 오늘 컨디션은 어떠니? 🥰"}]
 
 for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"])
