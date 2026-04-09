@@ -124,7 +124,7 @@ with st.sidebar:
     st.markdown("<div class='ms-footer'>📞 마더세이프<br>1588-7309</div>", unsafe_allow_html=True)
 
 # 4. 메인 화면 (가이드 및 챗봇)
-st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:25px;'>💖 이레 안심 가이드</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:25px;'>💖 이레엄마 안심 가이드</h2>", unsafe_allow_html=True)
 
 guide = get_comprehensive_guide(current_weeks)
 col1, col2 = st.columns(2)
