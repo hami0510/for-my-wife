@@ -3,32 +3,18 @@ from openai import OpenAI
 from datetime import datetime, timedelta
 import requests
 import json
+import random
 
 # 1. 설정 및 디자인 (일관된 레이아웃 유지)
 st.set_page_config(page_title="이레엄마를 위한 안심 가이드", page_icon="💖", layout="wide")
 
-# 구글 시트 연동 URL (복사하신 주소 그대로 유지)
 GAS_URL = "https://script.google.com/macros/s/AKfycbyD3Cs7lzrU-npU976mBQirH1AmHrWRHggDjF8l5mYPFllREHaZ1WUqyZag4viWsmdIJQ/exec"
 
 def save_to_sheets(type_val, content, status=""):
-    """구글 앱스 스크립트로 데이터를 안전하게 전송 (Header 추가 버전)"""
-    data = {
-        "type": type_val,
-        "content": content,
-        "status": status
-    }
+    data = {"type": type_val, "content": content, "status": status}
     try:
-        # 전송 시 JSON 헤더를 명시적으로 추가하여 구글 서버와의 호환성을 높임
-        response = requests.post(
-            GAS_URL, 
-            data=json.dumps(data), 
-            headers={'Content-Type': 'application/json'},
-            timeout=10
-        )
-        if response.status_code == 200:
-            return True
-        else:
-            return False
+        response = requests.post(GAS_URL, data=json.dumps(data), headers={'Content-Type': 'application/json'}, timeout=10)
+        return response.status_code == 200
     except:
         return False
 
@@ -40,6 +26,14 @@ st.markdown("""
     /* 사이드바 스타일 */
     .sb-box { background-color: white; padding: 15px; border-radius: 12px; border: 1px solid #ffe3e3; margin-bottom: 10px; }
     
+    /* 성경 구절 박스 디자인 */
+    .bible-box { 
+        background-color: #fff5f5; padding: 15px; border-radius: 12px; border-left: 4px solid #ff6b6b;
+        margin-bottom: 15px; font-size: 0.9rem; color: #444; line-height: 1.6;
+        box-shadow: 0 2px 5px rgba(255,107,107,0.1);
+    }
+    .bible-ref { font-weight: bold; color: #ff6b6b; display: block; margin-top: 5px; text-align: right; }
+
     /* 메인 카드 스타일 */
     .status-card { 
         background-color: white; padding: 22px; border-radius: 15px; 
@@ -49,15 +43,12 @@ st.markdown("""
     .guide-header { color: #ff6b6b; font-weight: 700; font-size: 1.15rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .guide-content { font-size: 0.95rem; line-height: 1.7; color: #444; }
     .caution-text { color: #e63946; font-weight: 600; margin-top: 10px; font-size: 0.9rem; }
-    
-    /* 마더세이프 텍스트 */
     .ms-footer { text-align: center; color: #ff6b6b; font-weight: 800; font-size: 1.1rem; margin-top: 15px; }
-    
     .stButton>button { width: 100%; background-color: #ff6b6b; color: white; border: none; border-radius: 8px; height: 42px; font-weight: 600; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. 주차별 상세 가이드 데이터베이스 (LMP 기준)
+# 2. 주차별 상세 가이드 및 성경 구절 데이터
 def get_comprehensive_guide(weeks):
     guides = {
         0: {"baby": "새 생명을 맞이할 준비를 하고 있어요.", "mom": "임신 준비기입니다. 몸을 따뜻하게 유지하고 엽산 복용을 시작하세요.", "dad": "함께 금주하고 아내의 컨디션을 세심히 살펴주세요.", "caution": "약물 복용 전 반드시 전문가와 상의하세요."},
@@ -71,10 +62,32 @@ def get_comprehensive_guide(weeks):
     current = max([w for w in guides.keys() if w <= weeks] + [0])
     return guides[current]
 
-# 3. 사이드바 (날짜 설정 및 마더세이프)
+bible_verses = [
+    ("내가 너를 모태에 짓기 전에 너를 알았고 네가 배에서 나오기 전에 너를 성별하였고...", "예레미야 1:5"),
+    ("자식들은 여호와의 기업이요 태의 열매는 그의 상급이로다", "시편 127:3"),
+    ("여인이 어찌 그 젖 먹는 자식을 잊겠으며... 나는 너를 잊지 아니할 것이라", "이사야 49:15"),
+    ("주께서 내 내장을 지으시며 나의 모태에서 나를 만드셨나이다", "시편 139:13"),
+    ("여호와는 너를 지키시는 이시라 여호와께서 네 오른쪽에서 네 그늘이 되시나니", "시편 121:5"),
+    ("너희는 마음에 근심하지 말라 하나님을 믿으니 또 나를 믿으라", "요한복음 14:1"),
+    ("범사에 감사하라 이것이 그리스도 예수 안에서 너희를 향하신 하나님의 뜻이니라", "데살로니가전서 5:18"),
+    ("아무 것도 염려하지 말고... 너희 구할 것을 감사함으로 하나님께 아뢰라", "빌립보서 4:6"),
+    ("네 길을 여호와께 맡기라 그를 의지하면 그가 이루시고", "시편 37:5")
+]
+
+# 3. 사이드바 (타이틀 - 성경구절 - 날짜 순서)
 with st.sidebar:
-    st.markdown("<h3 style='text-align:center; color:#ff6b6b;'>💖 이레 엄마 가이드</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align:center; color:#ff6b6b; margin-bottom:10px;'>💖 이레 엄마 가이드</h3>", unsafe_allow_html=True)
     
+    # [추가] 매일 바뀌는 성경 구절 (날짜를 시드로 사용하여 하루 한 번 변경)
+    random.seed(datetime.now().strftime("%Y%m%d"))
+    verse, ref = random.choice(bible_verses)
+    st.markdown(f"""
+        <div class="bible-box">
+            "{verse}"
+            <span class="bible-ref">- {ref} -</span>
+        </div>
+    """, unsafe_allow_html=True)
+
     # 날짜 설정
     lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 4, 9).date())
     due_date = lmp_date + timedelta(days=280)
@@ -97,24 +110,20 @@ with st.sidebar:
         cond = st.select_slider("상태", options=["힘듦", "보통", "좋음"], key="cond_slider", label_visibility="collapsed")
         memo = st.text_input("메모", placeholder="아빠에게 남길 말", key="cond_memo")
         if st.button("구글 시트 전송", key="btn_cond"):
-            if save_to_sheets("컨디션", memo, cond):
-                st.toast("이레 아빠 시트에 기록 완료! ❤️")
-            else:
-                st.error("전송에 실패했어요. URL과 시트 권한을 확인해주세요.")
+            if save_to_sheets("컨디션", memo, cond): st.toast("기록 완료! ❤️")
+            else: st.error("전송 실패")
 
     with st.expander("💌 태교 편지함"):
         letter = st.text_area("이레에게...", placeholder="소중한 기록을 남겨보세요.", key="letter_area")
         if st.button("기록 저장", key="btn_letter"):
-            if save_to_sheets("태교편지", letter):
-                st.success("소중한 기록이 저장되었습니다! ❤️")
-            else:
-                st.error("저장 실패. 앱스 스크립트 설정을 확인해주세요.")
+            if save_to_sheets("태교편지", letter): st.success("저장 완료! ❤️")
+            else: st.error("저장 실패")
 
     st.divider()
     st.markdown("<div style='text-align:center; font-size:0.8rem; color:gray;'>임산부 약물/음식 상담</div>", unsafe_allow_html=True)
     st.markdown("<div class='ms-footer'>📞 마더세이프<br>1588-7309</div>", unsafe_allow_html=True)
 
-# 4. 메인 화면 (주차별 필수 가이드 상세 노출)
+# 4. 메인 화면 (가이드 및 챗봇)
 st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:25px;'>💖 이레 안심 가이드</h2>", unsafe_allow_html=True)
 
 guide = get_comprehensive_guide(current_weeks)
@@ -137,32 +146,28 @@ with col2:
     <div class="status-card">
         <div class="guide-header">🙋‍♂️ 이레 아빠의 역할</div>
         <div class="guide-content">
-            이번 주 아빠가 해야 할 가장 중요한 일은 <b>"{guide['dad']}"</b> 입니다.<br><br>
-            아내의 몸은 현재 호르몬 변화로 매우 힘든 시기입니다. 
-            의학적인 정보보다 아빠의 다정한 말 한마디가 더 큰 약이 됩니다.
+            이번 주 아빠의 미션: <b>"{guide['dad']}"</b><br><br>
+            이레 엄마, 오늘도 이레를 품어주느라 고생 많았어요. 
+            아빠가 항상 옆에서 지켜줄게요. 사랑해요!
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 st.divider()
 
-# 안심 챗봇
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차에 맞는 맞춤 상담을 준비했어. 오늘 컨디션은 어떠니? 🥰"}]
+    st.session_state.messages = [{"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차네. 오늘 기분은 어때? 🥰"}]
 
 for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"])
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-if prompt := st.chat_input("증상이나 궁금한 점을 물어보세요..."):
+if prompt := st.chat_input("증상을 물어보거나 대화를 나눠보세요..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
-        sys_msg = {
-            "role": "system", 
-            "content": f"너는 산부인과 전문의이자 이레 아빠야. 현재 {current_weeks}주차인 아내에게 다정하게 답해줘. 마더세이프 근거로 답변하고 끝에는 사랑한다고 해줘."
-        }
+        sys_msg = {"role": "system", "content": f"산부인과 전문의 이레 아빠야. 현재 {current_weeks}주차인 아내에게 다정하게 답하고 사랑한다고 해줘."}
         res = client.chat.completions.create(model="gpt-4o", messages=[sys_msg] + st.session_state.messages)
         msg = res.choices[0].message.content
         st.markdown(msg)
