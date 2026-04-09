@@ -5,7 +5,7 @@ import requests
 import json
 import random
 
-# 1. 설정 및 디자인 (테마 고정 로직 포함)
+# 1. 설정 및 디자인 (사이드바 버튼 시인성 강화)
 st.set_page_config(page_title="이레엄마를 위한 안심 가이드", page_icon="💖", layout="centered")
 
 GAS_URL = "https://script.google.com/macros/s/AKfycbyD3Cs7lzrU-npU976mBQirH1AmHrWRHggDjF8l5mYPFllREHaZ1WUqyZag4viWsmdIJQ/exec"
@@ -18,7 +18,7 @@ def save_to_sheets(type_val, content, status=""):
     except:
         return False
 
-# CSS: 시스템 테마를 무시하고 화이트/핑크 톤으로 강제 고정
+# CSS: 사이드바 열기/닫기 화살표 버튼 색상 강제 고정
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
@@ -30,25 +30,32 @@ st.markdown("""
         color: #222222 !important;
     }
 
-    /* 2. 사이드바 내부 요소 고정 */
+    /* 2. ★ 사이드바 화살표 버튼(열기/닫기) 색상 고정 ★ */
+    [data-testid="stSidebarCollapsedControl"] svg, 
+    button[kind="header"] svg {
+        fill: #ff6b6b !important;
+        color: #ff6b6b !important;
+        width: 30px !important;
+        height: 30px !important;
+    }
+    
+    /* 사이드바가 닫혀있을 때 나타나는 아이콘 배경 */
+    [data-testid="stSidebarCollapsedControl"] {
+        background-color: rgba(255, 107, 107, 0.1) !important;
+        border-radius: 0 10px 10px 0 !important;
+    }
+
+    /* 3. 사이드바 내부 요소 고정 */
     [data-testid="stSidebar"] {
         background-color: #ffffff !important;
     }
-    [data-testid="stSidebar"] section[data-testid="stSidebarNav"] {
-        background-color: #ffffff !important;
-    }
-    
-    /* 사이드바 날짜 입력창, 텍스트 입력창 등 */
     [data-testid="stSidebar"] div[data-baseweb="input"] {
         background-color: #f8f9fa !important;
         color: #222222 !important;
         border: 1px solid #ffe3e3 !important;
     }
-    [data-testid="stSidebar"] input {
-        color: #222222 !important;
-    }
 
-    /* 3. 메인 화면 카드 스타일 */
+    /* 4. 메인 화면 카드 및 챗봇 스타일 */
     .status-card { 
         background-color: #ffffff !important; padding: 22px; border-radius: 15px; 
         border-top: 5px solid #ff6b6b; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
@@ -56,50 +63,29 @@ st.markdown("""
     }
     .guide-header { color: #ff6b6b !important; font-weight: 700; font-size: 1.15rem; margin-bottom: 12px; }
     .guide-content { font-size: 0.95rem; line-height: 1.7; color: #444444 !important; }
-    .caution-text { color: #e63946 !important; font-weight: 600; margin-top: 10px; }
-
-    /* 4. 챗봇 대화창 시인성 보완 */
+    
     [data-testid="stChatMessage"] {
         background-color: #ffffff !important;
         color: #222222 !important;
         border: 1px solid #ffe3e3 !important;
-        border-radius: 15px !important;
-    }
-    [data-testid="stChatMessage"] p, [data-testid="stChatMessage"] span {
-        color: #222222 !important;
     }
 
-    /* 5. ★ 입력창(Chat Input) 색상 강제 고정 ★ */
-    div[data-testid="stChatInput"] {
-        background-color: transparent !important;
-    }
+    /* 5. 입력창(Chat Input) 색상 고정 */
     div[data-testid="stChatInput"] textarea {
         background-color: #ffffff !important;
         color: #222222 !important;
         border: 1px solid #ff6b6b !important;
-        border-radius: 10px !important;
-        -webkit-text-fill-color: #222222 !important; /* iOS 다크모드 대응 */
-    }
-    div[data-testid="stChatInput"] button {
-        color: #ff6b6b !important;
+        -webkit-text-fill-color: #222222 !important;
     }
 
     /* 6. 성경 구절 및 기타 박스 */
-    .sb-box { 
-        background-color: #ffffff !important; padding: 15px; border-radius: 12px; 
-        border: 1px solid #ffe3e3 !important; margin-bottom: 10px; color: #222222 !important;
-    }
     .bible-box { 
         background-color: #fff5f5 !important; padding: 15px; border-radius: 12px; border-left: 4px solid #ff6b6b;
-        margin-bottom: 15px; font-size: 0.92rem; color: #444444 !important; line-height: 1.6;
+        margin-bottom: 15px; font-size: 0.92rem; color: #444444 !important;
     }
     .bible-ref { font-weight: bold; color: #ff6b6b !important; display: block; margin-top: 5px; text-align: right; }
     
-    /* 7. 버튼 및 슬라이더 */
-    .stButton>button { width: 100%; background-color: #ff6b6b !important; color: #ffffff !important; border: none; border-radius: 8px; height: 42px; font-weight: 600; }
-    
-    /* 익스팬더(Expander) 글자색 */
-    .st-emotion-cache-p4m0d5 { color: #222222 !important; }
+    .stButton>button { width: 100%; background-color: #ff6b6b !important; color: #ffffff !important; border: none; border-radius: 8px; font-weight: 600; }
 
     @media (max-width: 640px) {
         .status-card { padding: 18px; }
@@ -108,7 +94,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. 데이터베이스 및 도구
+# 2. 데이터베이스 및 기능 (기존과 동일)
 bible_verses = [
     ("내가 너를 모태에 짓기 전에 너를 알았고 네가 배에서 나오기 전에 너를 성별하였고...", "예레미야 1:5"),
     ("자식들은 여호와의 기업이요 태의 열매는 그의 상급이로다", "시편 127:3"),
@@ -127,7 +113,7 @@ def get_comprehensive_guide(weeks):
     current = max([w for w in guides.keys() if w <= weeks] + [0])
     return guides[current]
 
-# 3. 사이드바 (LMP 및 기록 기능)
+# 3. 사이드바
 with st.sidebar:
     st.markdown("<h3 style='text-align:center; color:#ff6b6b;'>💖 이레 엄마 가이드</h3>", unsafe_allow_html=True)
     
@@ -137,12 +123,13 @@ with st.sidebar:
 
     lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 4, 9).date())
     due_date = lmp_date + timedelta(days=280)
-    total_days = max(0, (datetime.now().date() - lmp_date).days)
+    today = datetime.now().date()
+    total_days = max(0, (today - lmp_date).days)
     current_weeks, current_days = total_days // 7, total_days % 7
-    d_day = (due_date - datetime.now().date()).days
+    d_day = (due_date - today).days
 
     st.markdown(f"""
-        <div class="sb-box" style="text-align:center;">
+        <div class="sb-box" style="text-align:center; background-color:#ffffff !important; border: 1px solid #ffe3e3; border-radius:12px; padding:15px; margin-bottom:10px;">
             <span style="font-size:0.85rem; color:gray;">이레는 지금</span><br>
             <span style="font-size:1.6rem; font-weight:800; color:#ff4757;">{current_weeks}주 {current_days}일차</span><br>
             <b style="color:#ff6b6b; font-size:1.1rem;">D-{d_day if d_day > 0 else 'Day!'}</b>
@@ -150,14 +137,14 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     with st.expander("🌡️ 오늘 엄마 컨디션 기록"):
-        cond = st.select_slider("상태", options=["힘듦", "보통", "좋음"], key="c_s", label_visibility="collapsed")
-        memo = st.text_input("메모", key="c_m")
-        if st.button("구글 시트 전송", key="b_c"):
+        cond = st.select_slider("상태", options=["힘듦", "보통", "좋음"], key="cs", label_visibility="collapsed")
+        memo = st.text_input("메모", key="cm")
+        if st.button("구글 시트 전송", key="bc"):
             if save_to_sheets("컨디션", memo, cond): st.toast("기록 완료! ❤️")
 
     with st.expander("💌 태교 편지함"):
-        letter = st.text_area("이레에게...", key="l_a")
-        if st.button("기록 저장", key="b_l"):
+        letter = st.text_area("이레에게...", key="la")
+        if st.button("기록 저장", key="bl"):
             if save_to_sheets("태교편지", letter): st.success("저장 완료! ❤️")
 
     st.divider()
@@ -182,19 +169,4 @@ st.markdown(f"""
 st.divider()
 
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차네. 오늘 컨디션은 어때? 🥰"}]
-
-for m in st.session_state.messages:
-    with st.chat_message(m["role"]): st.markdown(m["content"])
-
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-if prompt := st.chat_input("증상을 물어보거나 대화를 나눠보세요..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
-    with st.chat_message("assistant"):
-        sys_msg = {"role": "system", "content": f"산부인과 전문의 이레 아빠야. 현재 {current_weeks}주차인 아내에게 다정하게 답해줘."}
-        res = client.chat.completions.create(model="gpt-4o", messages=[sys_msg] + st.session_state.messages)
-        msg = res.choices[0].message.content
-        st.markdown(msg)
-    st.session_state.messages.append({"role": "assistant", "content": msg})
+    st.session_state.messages = [{"role": "assistant",
