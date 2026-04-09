@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# 2. UI/UX 디테일 최적화 CSS
+# 2. UI/UX 디자인 최적화 CSS
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
@@ -19,7 +19,7 @@ st.markdown("""
         background-color: #fffafb;
     }
 
-    /* 타이틀 영역 최적화 */
+    /* 타이틀 영역 */
     .title-container {
         padding: 2.5rem 0rem 1.5rem 0rem;
         text-align: center;
@@ -30,19 +30,14 @@ st.markdown("""
         font-weight: 700;
         line-height: 1.4;
         word-break: keep-all;
-        letter-spacing: -0.5px;
     }
     .sub-title {
         color: #999;
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         margin-top: 0.8rem;
-        font-weight: 400;
     }
 
-    /* 사이드바 가이드 박스 디자인 업그레이드 */
-    .guide-section {
-        margin-top: 15px;
-    }
+    /* 사이드바 가이드 박스 */
     .guide-box {
         padding: 15px;
         border-radius: 12px;
@@ -51,29 +46,28 @@ st.markdown("""
         line-height: 1.6;
         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
-    .mom-guide { 
-        background-color: #f1f8ff; 
-        border-left: 4px solid #74c0fc; 
-        color: #1971c2;
+    .mom-guide { background-color: #f1f8ff; border-left: 4px solid #74c0fc; color: #1971c2; }
+    .dad-guide { background-color: #fff9db; border-left: 4px solid #fab005; color: #925400; }
+    
+    /* 마더세이프 버튼 디자인 */
+    .call-button {
+        display: block;
+        background-color: #ff6b6b;
+        color: white !important;
+        text-align: center;
+        padding: 12px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: bold;
+        margin: 15px 0;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 6px rgba(255, 107, 107, 0.2);
     }
-    .dad-guide { 
-        background-color: #fff9db; 
-        border-left: 4px solid #fab005; 
-        color: #925400;
-    }
-    .guide-header {
-        font-weight: 700;
-        margin-bottom: 5px;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
+    .call-button:hover { background-color: #ff5252; }
 
-    /* 채팅방 입력창 가시성 강화 */
     [data-testid="stChatInput"] {
         border-radius: 10px !important;
         border: 1px solid #ffe3e3 !important;
-        box-shadow: 0 4px 12px rgba(255, 107, 107, 0.1) !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -125,18 +119,15 @@ with st.sidebar:
     }
 
     st.markdown(f"""
-        <div class="guide-section">
-            <div class="guide-box mom-guide">
-                <div class="guide-header">👩‍⚕️ 의학 가이드</div>{guides[week]['mom']}
-            </div>
-            <div class="guide-box dad-guide">
-                <div class="guide-header">🙋‍♂️ 아빠 가이드</div>{guides[week]['dad']}
-            </div>
+        <div style="margin-top: 10px;">
+            <div class="guide-box mom-guide"><b>👩‍⚕️ 의학 가이드</b><br>{guides[week]['mom']}</div>
+            <div class="guide-box dad-guide"><b>🙋‍♂️ 아빠 가이드</b><br>{guides[week]['dad']}</div>
         </div>
     """, unsafe_allow_html=True)
-    
-    st.divider()
-    st.write("📞 마더세이프: 1588-7309")
+
+    # 마더세이프 전화 버튼 상향 배치
+    st.markdown('<a href="tel:1588-7309" class="call-button">📞 마더세이프 전문가 상담</a>', unsafe_allow_html=True)
+    st.caption("※ 본 서비스는 보조적 가이드이며, 정확한 진단은 전문의 상담을 우선으로 합니다.")
 
 # 4. 메인 화면
 st.markdown(f"""
@@ -157,7 +148,7 @@ if "messages" not in st.session_state:
         }
     ]
 
-# 6. 채팅 인터페이스 출력
+# 6. 채팅 인터페이스
 for message in st.session_state.messages:
     if message["role"] != "system":
         with st.chat_message(message["role"]):
