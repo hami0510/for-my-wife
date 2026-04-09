@@ -141,7 +141,7 @@ with st.sidebar:
     st.markdown("<div style='text-align:center; color:#ff6b6b; font-weight:800;'>📞 마더세이프 1588-7309</div>", unsafe_allow_html=True)
 
 # 6. 메인 화면
-st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:30px;'>💖 이레 안심 가이드</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:30px;'>💖 이레 엄마 안심 가이드</h2>", unsafe_allow_html=True)
 
 guide = get_comprehensive_guide(current_weeks)
 st.markdown(f"""
