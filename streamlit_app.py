@@ -49,8 +49,8 @@ st.markdown("""
     .mom-guide { background-color: #f1f8ff; border-left: 4px solid #74c0fc; color: #1971c2; }
     .dad-guide { background-color: #fff9db; border-left: 4px solid #fab005; color: #925400; }
     
-    /* 마더세이프 버튼 디자인 */
-    .call-button {
+    /* 마더세이프 전화번호 박스 디자인 */
+    .call-box {
         display: block;
         background-color: #ff6b6b;
         color: white !important;
@@ -59,11 +59,16 @@ st.markdown("""
         border-radius: 10px;
         text-decoration: none;
         font-weight: bold;
-        margin: 15px 0;
-        font-size: 0.9rem;
-        box-shadow: 0 4px 6px rgba(255, 107, 107, 0.2);
+        margin: 15px 0 5px 0;
+        font-size: 0.95rem;
     }
-    .call-button:hover { background-color: #ff5252; }
+    .call-subtext {
+        font-size: 0.75rem;
+        color: #888;
+        text-align: center;
+        margin-bottom: 15px;
+        line-height: 1.4;
+    }
 
     [data-testid="stChatInput"] {
         border-radius: 10px !important;
@@ -125,9 +130,17 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-    # 마더세이프 전화 버튼 상향 배치
-    st.markdown('<a href="tel:1588-7309" class="call-button">📞 마더세이프 전문가 상담</a>', unsafe_allow_html=True)
-    st.caption("※ 본 서비스는 보조적 가이드이며, 정확한 진단은 전문의 상담을 우선으로 합니다.")
+    # 마더세이프 전화번호 직관적 노출
+    st.markdown(f"""
+        <a href="tel:1588-7309" class="call-box">
+            📞 마더세이프 상담: 1588-7309
+        </a>
+        <div class="call-subtext">
+            임산부 약물 상담 전문가 연결<br>
+            (평일 09:00 ~ 17:00)
+        </div>
+    """, unsafe_allow_html=True)
+    st.divider()
 
 # 4. 메인 화면
 st.markdown(f"""
