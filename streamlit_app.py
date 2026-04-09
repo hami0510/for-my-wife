@@ -6,7 +6,7 @@ import json
 import random
 
 # 1. 페이지 설정 (아이콘 및 타이틀)
-st.set_page_config(page_title="이레엄마를 위한 안심 가이드", page_icon="💖", layout="centered")
+st.set_page_config(page_title="이레 엄마를 위한 안심 가이드", page_icon="💖", layout="centered")
 
 # 구글 시트 연동 URL
 GAS_URL = "https://script.google.com/macros/s/AKfycbyD3Cs7lzrU-npU976mBQirH1AmHrWRHggDjF8l5mYPFllREHaZ1WUqyZag4viWsmdIJQ/exec"
