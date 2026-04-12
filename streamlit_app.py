@@ -1,9 +1,8 @@
 import streamlit as st
 from openai import OpenAI
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone  # timezone 추가
 import requests
 import json
-import random
 
 # 1. 페이지 설정
 st.set_page_config(page_title="이레엄마를 위한 안심 가이드", page_icon="💖", layout="centered")
@@ -98,24 +97,33 @@ def get_comprehensive_guide(weeks):
     current = max([w for w in guides.keys() if w <= weeks] + [0])
     return guides[current]
 
-# 5. 사이드바 (날짜 고정 반영)
+# 5. 시간 및 주차 계산 로직 (수정됨)
+# 한국 표준시(KST) 설정
+KST = timezone(timedelta(hours=9))
+now = datetime.now(KST)
+today_date = now.date()
+
 with st.sidebar:
     st.markdown('<span class="sidebar-title">💖 이레 엄마 가이드</span>', unsafe_allow_html=True)
-    now = datetime.now()
+    
+    # 상단 날짜 표시 (한국 시간 기준)
     st.markdown(f'<span class="sidebar-today">{now.strftime("%Y년 %m월 %d일")} ({["월","화","수","목","금","토","일"][now.weekday()]})</span>', unsafe_allow_html=True)
     
+    # 성경 구절 (날짜 기준 순환)
     day_index = (now.day - 1) % len(bible_list)
     verse, ref = bible_list[day_index]
     st.markdown(f'<div class="bible-box">"{verse}"<span class="bible-ref">- {ref} -</span></div>', unsafe_allow_html=True)
 
-    # [수정됨] 마지막 생리일 기본값을 2026년 3월 15일로 고정
+    # 마지막 생리일 기본값 설정
     lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 3, 15).date())
     
+    # 주차 및 D-day 계산
     due_date = lmp_date + timedelta(days=280)
-    total_days = max(0, (now.date() - lmp_date).days)
+    total_days = max(0, (today_date - lmp_date).days)
     current_weeks, current_days = total_days // 7, total_days % 7
-    d_day = (due_date - now.date()).days
+    d_day = (due_date - today_date).days
 
+    # 현재 상태 카드
     st.markdown(f'<div class="sb-box"><span style="color:#888;">우리 이레는 지금</span><br><span style="font-size:1.8rem; font-weight:800; color:#ff4757;">{current_weeks}주 {current_days}일차</span><br><b style="color:#ff6b6b; font-size:1.3rem;">D-{d_day if d_day > 0 else "Day!"}</b></div>', unsafe_allow_html=True)
 
     with st.expander("🌡️ 오늘 엄마 컨디션 기록"):
@@ -134,6 +142,7 @@ with st.sidebar:
 
 # 6. 메인 화면
 st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:30px;'>💖 이레 안심 가이드</h2>", unsafe_allow_html=True)
+
 guide = get_comprehensive_guide(current_weeks)
 st.markdown(f'<div class="status-card"><div class="guide-header">👶 {current_weeks}주차 이레 상태</div><div class="guide-content">{guide["baby"]}<br><br><b>엄마 준비:</b> {guide["mom"]}</div><div style="color:#ff4757; font-weight:700; margin-top:10px;">⚠️ 주의사항: {guide["caution"]}</div></div>', unsafe_allow_html=True)
 st.markdown(f'<div class="status-card"><div class="guide-header">🙋‍♂️ 이레 아빠의 역할</div><div class="guide-content">이번 주 미션: <b>"{guide["dad"]}"</b><br><br>이레 엄마, 오늘도 고생 많았어요. 사랑해요!</div></div>', unsafe_allow_html=True)
