@@ -141,7 +141,7 @@ with st.sidebar:
 
     # [수정] 바로가기 버튼에 제공해주신 주소 적용
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    st.link_button("📊 태교편지보러가기", REAL_SHEET_URL)
+    st.link_button("📊 태교 편지 보러가기", REAL_SHEET_URL)
 
     st.divider()
     st.markdown("<div style='text-align:center; color:#ff6b6b; font-weight:800;'>📞 마더세이프 1588-7309</div>", unsafe_allow_html=True)
