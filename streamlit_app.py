@@ -1,6 +1,6 @@
 import streamlit as st
 from openai import OpenAI
-from datetime import datetime, timedelta, timezone  # timezone 추가
+from datetime import datetime, timedelta, timezone
 import requests
 import json
 
@@ -97,8 +97,7 @@ def get_comprehensive_guide(weeks):
     current = max([w for w in guides.keys() if w <= weeks] + [0])
     return guides[current]
 
-# 5. 시간 및 주차 계산 로직 (수정됨)
-# 한국 표준시(KST) 설정
+# 5. 시간 및 주차 계산 로직
 KST = timezone(timedelta(hours=9))
 now = datetime.now(KST)
 today_date = now.date()
@@ -136,6 +135,11 @@ with st.sidebar:
         letter = st.text_area("이레에게...", key="la", placeholder="오늘의 기록을 남겨보세요")
         if st.button("편지 저장"):
             if save_to_sheets("태교편지", letter): st.success("저장 완료! ❤️")
+
+    # [추가항목] 스프레드시트 바로가기 버튼
+    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+    # 아래 URL 부분에 실제 구글 스프레드시트 주소를 붙여넣으세요.
+    st.link_button("📊 데이터 기록 시트 확인", "본인의_스프레드시트_URL_주소를_여기에_넣으세요")
 
     st.divider()
     st.markdown("<div style='text-align:center; color:#ff6b6b; font-weight:800;'>📞 마더세이프 1588-7309</div>", unsafe_allow_html=True)
