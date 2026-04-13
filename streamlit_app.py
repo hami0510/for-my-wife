@@ -4,6 +4,12 @@ from datetime import datetime, timedelta, timezone
 import requests
 import json
 
+# ==========================================
+# 0. 핵심 설정 (주소 반영 완료)
+# ==========================================
+REAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1r2LdeqpfhhH5IAmt_ef4Z6RuQ4M5-_V6_tNz-2dpY-E/edit?gid=0#gid=0"
+# ==========================================
+
 # 1. 페이지 설정
 st.set_page_config(page_title="이레엄마를 위한 안심 가이드", page_icon="💖", layout="centered")
 
@@ -97,32 +103,29 @@ def get_comprehensive_guide(weeks):
     current = max([w for w in guides.keys() if w <= weeks] + [0])
     return guides[current]
 
-# 5. 시간 및 주차 계산 로직
+# 5. 시간 및 주차 계산 로직 (KST 반영)
 KST = timezone(timedelta(hours=9))
 now = datetime.now(KST)
 today_date = now.date()
 
 with st.sidebar:
     st.markdown('<span class="sidebar-title">💖 이레 엄마 가이드</span>', unsafe_allow_html=True)
-    
-    # 상단 날짜 표시 (한국 시간 기준)
     st.markdown(f'<span class="sidebar-today">{now.strftime("%Y년 %m월 %d일")} ({["월","화","수","목","금","토","일"][now.weekday()]})</span>', unsafe_allow_html=True)
     
-    # 성경 구절 (날짜 기준 순환)
+    # 성경 구절
     day_index = (now.day - 1) % len(bible_list)
     verse, ref = bible_list[day_index]
     st.markdown(f'<div class="bible-box">"{verse}"<span class="bible-ref">- {ref} -</span></div>', unsafe_allow_html=True)
 
-    # 마지막 생리일 기본값 설정
+    # 마지막 생리일 입력
     lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 3, 15).date())
     
-    # 주차 및 D-day 계산
+    # 주차 계산
     due_date = lmp_date + timedelta(days=280)
     total_days = max(0, (today_date - lmp_date).days)
     current_weeks, current_days = total_days // 7, total_days % 7
     d_day = (due_date - today_date).days
 
-    # 현재 상태 카드
     st.markdown(f'<div class="sb-box"><span style="color:#888;">우리 이레는 지금</span><br><span style="font-size:1.8rem; font-weight:800; color:#ff4757;">{current_weeks}주 {current_days}일차</span><br><b style="color:#ff6b6b; font-size:1.3rem;">D-{d_day if d_day > 0 else "Day!"}</b></div>', unsafe_allow_html=True)
 
     with st.expander("🌡️ 오늘 엄마 컨디션 기록"):
@@ -136,10 +139,9 @@ with st.sidebar:
         if st.button("편지 저장"):
             if save_to_sheets("태교편지", letter): st.success("저장 완료! ❤️")
 
-    # [추가항목] 스프레드시트 바로가기 버튼
+    # [수정] 바로가기 버튼에 제공해주신 주소 적용
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    # 아래 URL 부분에 실제 구글 스프레드시트 주소를 붙여넣으세요.
-    st.link_button("📊 데이터 기록 시트 확인", "본인의_스프레드시트_URL_주소를_여기에_넣으세요")
+    st.link_button("📊 태교편지보러가기", REAL_SHEET_URL)
 
     st.divider()
     st.markdown("<div style='text-align:center; color:#ff6b6b; font-weight:800;'>📞 마더세이프 1588-7309</div>", unsafe_allow_html=True)
@@ -165,7 +167,7 @@ if prompt := st.chat_input("증상, 음식, 약물 등 무엇이든 물어보세
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
-        sys_msg = {"role": "system", "content": f"산부인과 전문의 이레 아빠야. 아내({current_weeks}주차)에게 다정하게 답해줘. 먹거리 질문 시 ⭕, ❌, ⚠️로 답하고 사랑한다고 해줘."}
+        sys_msg = {"role": "system", "content": f"산부인과 전문의 이레 아빠야. 아내({current_weeks}주차)에게 다정하게 답해줘. 먹거리 질문 시 ⭕, ❌, ⚠️로 답하고 축복한다고 해줘."}
         res = client.chat.completions.create(model="gpt-4o", messages=[sys_msg] + st.session_state.messages)
         msg = res.choices[0].message.content
         st.markdown(msg)
