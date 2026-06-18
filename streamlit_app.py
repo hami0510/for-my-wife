@@ -404,6 +404,43 @@ VACCINATION = [
 ]
 
 # ==========================================
+# 출산 준비물 체크리스트
+# ==========================================
+CHECKLIST = {
+    "👗 엄마 준비물": [
+        "앞이 트이는 수유 브라 3~4개",
+        "산모 패드 (넉넉히)",
+        "편한 슬리퍼",
+        "개인 세면도구 (칫솔·치약·샴푸)",
+        "수유 쿠션",
+        "충전기 및 보조배터리",
+        "간식 (에너지바·음료수)",
+        "여벌 편한 옷 2~3벌",
+        "립밤 (분만 시 도움)",
+        "안경 (렌즈 대신)",
+    ],
+    "👶 아기 준비물": [
+        "배냇저고리 3~5개",
+        "신생아 기저귀 (한 팩)",
+        "아기 모자·손싸개·발싸개",
+        "속싸개 3~4개",
+        "아기 세면도구 (아기 비누·로션)",
+        "카시트 (퇴원 시 필수!)",
+        "아기 담요",
+        "젖꼭지·젖병 (분유 수유 시)",
+    ],
+    "📋 서류·기타": [
+        "산모 수첩",
+        "신분증 (산모·배우자)",
+        "건강보험증",
+        "병원 예약 확인서",
+        "현금 (만일 대비)",
+        "카메라·핸드폰 충전기",
+        "출생신고 준비 메모",
+    ],
+}
+
+# ==========================================
 # 시간 계산 (KST)
 # ==========================================
 KST = timezone(timedelta(hours=9))
@@ -449,6 +486,35 @@ with st.sidebar:
             if save_to_sheets("태교편지", letter):
                 st.success("저장 완료! ❤️")
 
+    with st.expander("👶 태동 카운터"):
+        if "kick_count" not in st.session_state:
+            st.session_state.kick_count = 0
+        if "kick_start" not in st.session_state:
+            st.session_state.kick_start = now
+        elapsed_min = int((now - st.session_state.kick_start).total_seconds() // 60)
+        st.markdown(
+            f"<div style='text-align:center; font-size:2.2rem; font-weight:900; color:#ff6b6b;'>"
+            f"{st.session_state.kick_count}"
+            f"<span style='font-size:1rem; color:#888;'> / 10회</span></div>",
+            unsafe_allow_html=True,
+        )
+        st.progress(min(st.session_state.kick_count / 10, 1.0))
+        if st.session_state.kick_count >= 10:
+            st.success("✅ 정상! 2시간 내 10회 달성")
+        elif elapsed_min >= 120:
+            st.warning("⚠️ 2시간 경과, 10회 미만이면 병원에 연락하세요")
+        st.caption(f"측정 시작: {st.session_state.kick_start.strftime('%H:%M')}")
+        ck1, ck2 = st.columns(2)
+        with ck1:
+            if st.button("👶 태동!", key="kick_btn"):
+                st.session_state.kick_count += 1
+                st.rerun()
+        with ck2:
+            if st.button("초기화", key="kick_reset"):
+                st.session_state.kick_count = 0
+                st.session_state.kick_start = now
+                st.rerun()
+
     st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
     st.link_button("📊 태교 편지 보러가기", REAL_SHEET_URL)
     st.divider()
@@ -464,12 +530,13 @@ st.markdown("<p style='text-align:center; color:#888; margin-bottom:24px;'>임�
 # ==========================================
 # 탭 구성
 # ==========================================
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📅 주차별 가이드",
     "🥗 음식 안전 가이드",
     "🏥 검사 일정",
     "👶 육아 백과",
     "💬 AI 상담",
+    "📋 준비 도구",
 ])
 
 # ──────────────────────────────────────────
@@ -763,4 +830,181 @@ with tab5:
             st.session_state.messages = [
                 {"role": "assistant", "content": f"새로운 대화를 시작해요! 현재 {current_weeks}주차 이레 엄마, 무엇이든 물어보세요 🥰"}
             ]
+            st.rerun()
+
+# ──────────────────────────────────────────
+# TAB 6: 준비 도구
+# ──────────────────────────────────────────
+with tab6:
+    st.markdown("### 📋 임신·출산 준비 도구")
+
+    # ── 1. 배뭉침 타이머 ──────────────────
+    st.markdown("#### ⏱️ 배뭉침 타이머")
+    st.markdown("""
+    <div class="card card-orange" style="margin-bottom:16px;">
+        <div class="card-title card-title-orange">사용법</div>
+        배뭉침이 시작되면 <b>시작</b>, 끝나면 <b>종료</b>를 누르세요.<br>
+        <span style="color:#e74c3c;">간격이 10분 이하로 규칙적이면 즉시 병원으로!</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if "contractions" not in st.session_state:
+        st.session_state.contractions = []
+    if "contraction_start" not in st.session_state:
+        st.session_state.contraction_start = None
+
+    ct1, ct2 = st.columns(2)
+    with ct1:
+        if st.session_state.contraction_start is None:
+            if st.button("▶️ 배뭉침 시작", use_container_width=True, key="con_start"):
+                st.session_state.contraction_start = now
+                st.rerun()
+        else:
+            elapsed_sec = int((now - st.session_state.contraction_start).total_seconds())
+            st.markdown(
+                f"<div style='background:#fff3cd; border-radius:12px; padding:14px; text-align:center;'>"
+                f"⏱️ <b>진행 중</b><br>"
+                f"<span style='font-size:1.6rem; font-weight:900; color:#e67e22;'>{elapsed_sec}초</span><br>"
+                f"<span style='font-size:0.8rem; color:#888;'>시작: {st.session_state.contraction_start.strftime('%H:%M:%S')}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+    with ct2:
+        if st.session_state.contraction_start is not None:
+            if st.button("⏹️ 배뭉침 종료", use_container_width=True, key="con_end"):
+                duration_sec = int((now - st.session_state.contraction_start).total_seconds())
+                interval_min = None
+                if st.session_state.contractions:
+                    last_end = st.session_state.contractions[-1]["end"]
+                    interval_min = round((st.session_state.contraction_start - last_end).total_seconds() / 60, 1)
+                st.session_state.contractions.append({
+                    "no": len(st.session_state.contractions) + 1,
+                    "start": st.session_state.contraction_start,
+                    "end": now,
+                    "duration_sec": duration_sec,
+                    "interval_min": interval_min,
+                })
+                st.session_state.contraction_start = None
+                st.rerun()
+        if st.session_state.contractions:
+            if st.button("🗑️ 기록 초기화", use_container_width=True, key="con_clear"):
+                st.session_state.contractions = []
+                st.session_state.contraction_start = None
+                st.rerun()
+
+    if st.session_state.contractions:
+        recent = st.session_state.contractions[-5:][::-1]
+        st.markdown("**최근 기록**")
+        rows_html = ""
+        for c in recent:
+            interval_str = f"{c['interval_min']}분" if c['interval_min'] is not None else "—"
+            rows_html += (
+                f"<tr><td style='padding:8px 12px; text-align:center;'>{c['no']}번</td>"
+                f"<td style='padding:8px 12px; text-align:center;'>{c['duration_sec']}초</td>"
+                f"<td style='padding:8px 12px; text-align:center; "
+                f"{'color:#e74c3c; font-weight:700;' if c['interval_min'] is not None and c['interval_min'] <= 10 else ''}'>"
+                f"{interval_str}</td>"
+                f"<td style='padding:8px 12px; color:#888;'>{c['start'].strftime('%H:%M')}</td></tr>"
+            )
+        st.markdown(
+            f"<table style='width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05);'>"
+            f"<thead><tr style='background:#fdf0f0;'>"
+            f"<th style='padding:10px 12px;'>회차</th><th style='padding:10px 12px;'>지속시간</th>"
+            f"<th style='padding:10px 12px;'>간격</th><th style='padding:10px 12px;'>시작시간</th>"
+            f"</tr></thead><tbody>{rows_html}</tbody></table>",
+            unsafe_allow_html=True,
+        )
+        intervals = [c["interval_min"] for c in st.session_state.contractions if c["interval_min"] is not None]
+        if intervals and min(intervals[-3:]) <= 10:
+            st.error("🚨 간격 10분 이하! 규칙적이면 즉시 병원으로 출발하세요.")
+        elif intervals and min(intervals[-3:]) <= 15:
+            st.warning("⚠️ 간격이 좁아지고 있어요. 계속 관찰하세요.")
+
+    st.divider()
+
+    # ── 2. 체중 트래커 ────────────────────
+    st.markdown("#### ⚖️ 체중 트래커")
+    wt1, wt2, wt3 = st.columns(3)
+    with wt1:
+        pre_weight = st.number_input("임신 전 체중 (kg)", min_value=30.0, max_value=150.0, value=55.0, step=0.1, key="wt_pre")
+    with wt2:
+        height_cm = st.number_input("키 (cm)", min_value=140.0, max_value=200.0, value=163.0, step=0.1, key="wt_ht")
+    with wt3:
+        cur_weight = st.number_input("현재 체중 (kg)", min_value=30.0, max_value=150.0, value=pre_weight, step=0.1, key="wt_cur")
+
+    gain = round(cur_weight - pre_weight, 1)
+    bmi = pre_weight / ((height_cm / 100) ** 2)
+
+    if bmi < 18.5:
+        bmi_label, rec_min, rec_max = "저체중", 12.5, 18.0
+    elif bmi < 25.0:
+        bmi_label, rec_min, rec_max = "정상", 11.5, 16.0
+    elif bmi < 30.0:
+        bmi_label, rec_min, rec_max = "과체중", 7.0, 11.5
+    else:
+        bmi_label, rec_min, rec_max = "비만", 5.0, 9.0
+
+    if current_weeks <= 13:
+        exp_min = round((current_weeks / 13) * 1.5, 1)
+        exp_max = round((current_weeks / 13) * 2.0, 1)
+    else:
+        exp_min = round(1.5 + (current_weeks - 13) * 0.35, 1)
+        exp_max = round(2.0 + (current_weeks - 13) * 0.50, 1)
+
+    if gain < exp_min:
+        wt_status = ("🔵 체중 증가가 적어요", "#2c7be5", "단백질·철분 섭취를 늘려보세요.")
+    elif gain <= exp_max:
+        wt_status = ("✅ 적정 범위예요!", "#27ae60", "잘 유지하고 계세요. 균형 잡힌 식단을 유지하세요.")
+    else:
+        wt_status = ("🟠 증가량이 많아요", "#e67e22", "고칼로리·고나트륨 음식을 줄이고 가벼운 산책을 해보세요.")
+
+    st.markdown(f"""
+    <div class="card card-blue" style="margin-top:12px;">
+        <div class="card-title card-title-blue">분석 결과</div>
+        <b>임신 전 BMI:</b> {bmi:.1f} ({bmi_label})<br>
+        <b>총 체중 증가량:</b> <span style="font-size:1.3rem; font-weight:900; color:#ff6b6b;">+{gain}kg</span><br>
+        <b>{current_weeks}주차 권장 증가 범위:</b> +{exp_min}~{exp_max}kg<br>
+        <b>임신 전체 권장 증가량:</b> {rec_min}~{rec_max}kg<br><br>
+        <span style="color:{wt_status[1]}; font-weight:700;">{wt_status[0]}</span><br>
+        <span style="color:#666; font-size:0.9rem;">{wt_status[2]}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── 3. 출산 준비물 체크리스트 ─────────
+    st.markdown("#### 🎒 출산 준비물 체크리스트")
+
+    if "checklist_state" not in st.session_state:
+        st.session_state.checklist_state = {}
+
+    total_items = sum(len(v) for v in CHECKLIST.values())
+    checked_count = sum(1 for v in st.session_state.checklist_state.values() if v)
+    progress_val = checked_count / total_items if total_items > 0 else 0
+
+    st.markdown(f"**전체 진행률: {checked_count} / {total_items}개 완료**")
+    st.progress(progress_val)
+    if progress_val == 1.0:
+        st.success("🎉 모든 준비가 완료됐어요! 이레 곧 만나요!")
+
+    for category, items in CHECKLIST.items():
+        cat_checked = sum(1 for item in items if st.session_state.checklist_state.get(f"{category}_{item}", False))
+        with st.expander(f"{category} ({cat_checked}/{len(items)})"):
+            for item in items:
+                key = f"{category}_{item}"
+                if key not in st.session_state.checklist_state:
+                    st.session_state.checklist_state[key] = False
+                checked = st.checkbox(item, value=st.session_state.checklist_state[key], key=f"chk_{key}")
+                st.session_state.checklist_state[key] = checked
+
+    cl1, cl2 = st.columns(2)
+    with cl1:
+        if st.button("✅ 전체 완료 표시", use_container_width=True):
+            for category, items in CHECKLIST.items():
+                for item in items:
+                    st.session_state.checklist_state[f"{category}_{item}"] = True
+            st.rerun()
+    with cl2:
+        if st.button("🔄 전체 초기화", use_container_width=True):
+            st.session_state.checklist_state = {}
             st.rerun()
