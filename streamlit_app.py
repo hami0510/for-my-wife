@@ -33,8 +33,9 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
 }
 [data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; }
 [data-testid="stAppViewBlockContainer"] { padding-top: 1rem !important; }
-#MainMenu, footer, header { visibility: hidden; }
+#MainMenu, footer { visibility: hidden; }
 .block-container { padding-top: 0.5rem !important; }
+[data-testid="collapsedControl"] { display: block !important; visibility: visible !important; }
 [data-testid="stSidebar"] {
     background-color: #fff !important;
     border-right: 1px solid #ffe0e6 !important;
