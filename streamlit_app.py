@@ -575,16 +575,14 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 # TAB 1: 주차별 가이드
 # ──────────────────────────────────────────
 with tab1:
-    col_hero, _ = st.columns([3, 1])
-    with col_hero:
-        clamped = min(max(current_weeks, 1), 40)
-        data = WEEK_DATA[clamped]
-        st.markdown(f"""
-        <div class="week-hero">
-            <h1>👶 {current_weeks}주 {current_days_rem}일차</h1>
-            <p>태아 크기: <b>{data['size']}</b> &nbsp;|&nbsp; 출산 예정일까지 <b>{"D-Day!" if d_day <= 0 else f"D-{d_day}"}</b></p>
-        </div>
-        """, unsafe_allow_html=True)
+    clamped = min(max(current_weeks, 1), 40)
+    data = WEEK_DATA[clamped]
+    st.markdown(f"""
+    <div class="week-hero">
+        <h1>👶 {current_weeks}주 {current_days_rem}일차</h1>
+        <p>태아 크기: <b>{data['size']}</b> &nbsp;|&nbsp; 출산 예정일까지 <b>{"D-Day!" if d_day <= 0 else f"D-{d_day}"}</b></p>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("#### 원하는 주차 직접 보기")
     selected_week = st.slider("임신 주차 선택", 1, 40, clamped, format="%d주")
