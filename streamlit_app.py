@@ -35,7 +35,12 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
 [data-testid="stAppViewBlockContainer"] { padding-top: 1rem !important; }
 #MainMenu, footer { visibility: hidden; }
 .block-container { padding-top: 0.5rem !important; }
-[data-testid="collapsedControl"] { display: block !important; visibility: visible !important; }
+[data-testid="collapsedControl"] {
+    display: block !important; visibility: visible !important;
+    background-color: #ff6b6b !important; border-radius: 0 12px 12px 0 !important;
+    padding: 8px 10px !important; box-shadow: 2px 2px 8px rgba(255,107,107,0.4) !important;
+}
+[data-testid="collapsedControl"] svg { fill: #fff !important; }
 [data-testid="stSidebar"] {
     background-color: #fff !important;
     border-right: 1px solid #ffe0e6 !important;
