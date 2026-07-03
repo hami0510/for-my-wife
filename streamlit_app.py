@@ -450,6 +450,57 @@ GOV_SUPPORT = [
 ]
 
 # ==========================================
+# 👨‍👩‍👧 출산휴가·육아휴직 제도 데이터 (NEW)
+# ※ 2026-07 기준. 급여 상한액은 '출산전후휴가 급여등 상한액 고시'(고용노동부 고시,
+#   2026.1.1 시행) 및 고용보험법령 기준. 매년 변경되므로 고용24(work24.go.kr)에서
+#   최신 기준·모의계산 확인 필수. 회사 취업규칙에 법정 기준 이상의 규정이 있을 수 있음.
+# ==========================================
+LEAVE_RULES = {
+    "출산전후휴가": {
+        "총일수": {"단태아": 90, "다태아": 120, "미숙아": 100},
+        "출산후최소": {"단태아": 45, "다태아": 60, "미숙아": 45},
+        "유급일수": {"단태아": 60, "다태아": 75, "미숙아": 60},  # 사업주 유급 의무 구간
+        "급여상한_총액": {"단태아": 6_600_000, "다태아": 8_800_000, "미숙아": 7_333_330},  # 2026년 고시
+        "비고": "역일(달력일) 기준. 우선지원대상기업은 전체 기간 고용보험 지원, 대규모 기업은 마지막 30일(다태아 45일)만 지원",
+    },
+    "배우자출산휴가": {
+        "일수": 20,           # 근무일 기준 (주말·공휴일 제외)
+        "사용기한_일": 120,   # 출산일부터 120일 이내
+        "분할횟수": 3,        # 3회 분할 = 4개 구간
+        "급여상한_20일": 1_684_210,  # 2026년 고시, 우선지원대상기업 근로자 대상
+    },
+    "육아휴직": {
+        "기본_개월": 12,
+        "연장_개월": 18,      # 부모 각 3개월+ 사용 / 한부모 / 중증장애아동 부모
+        "분할횟수": 3,        # 3회 분할 = 4개 구간
+        # 월별 급여: (지급률, 상한액) — 1~3개월 100%/250만, 4~6개월 100%/200만, 7개월~ 80%/160만
+        "급여구간": [(3, 1.00, 2_500_000), (6, 1.00, 2_000_000), (18, 0.80, 1_600_000)],
+        "하한": 700_000,
+        # 6+6 부모육아휴직제: 생후 18개월 내 부모 모두 사용 시 첫 6개월 월별 상한 (각자)
+        "육육상한": [2_500_000, 2_500_000, 3_000_000, 3_500_000, 4_000_000, 4_500_000],
+    },
+}
+
+LEAVE_SUMMARY = [
+    {"name": "🤱 출산전후휴가", "who": "출산한 엄마 (근로기준법상 권리)", "period": "90일 (다태아 120일 · 미숙아 100일)",
+     "point": "출산 후 45일 이상(다태아 60일) 반드시 확보 · 역일 기준 · 최초 60일(다태아 75일)은 사업주 유급 의무",
+     "pay": "우선지원대상기업: 90일 전체 고용보험 지원 (2026년 총 상한 660만원) / 대규모 기업: 마지막 30일만 지원",
+     "apply": "휴가 시작 1개월 후~종료 후 12개월 이내 고용24 신청 (고용보험 180일 이상)"},
+    {"name": "👨 배우자 출산휴가", "who": "출산한 배우자를 둔 아빠", "period": "20일 (근무일 기준 — 주말·공휴일 제외)",
+     "point": "출산일부터 120일 이내 사용 · 3회 분할 가능(4구간) · 미부여 사업주 과태료 500만원",
+     "pay": "우선지원대상기업: 20일 전체 고용보험 지원 (2026년 상한 1,684,210원, 초과분 사업주 부담) / 대규모: 사업주 전액 유급",
+     "apply": "휴가 시작 1개월 후~종료 후 12개월 이내 고용24 신청 (고용보험 180일 이상)"},
+    {"name": "👶 육아휴직", "who": "엄마·아빠 각각 (임신 중에도 가능)", "period": "기본 1년 → 조건 충족 시 1년 6개월",
+     "point": "연장 조건: 부모 모두 같은 자녀에 각 3개월 이상 사용 / 한부모 / 중증장애아동 부모 · 3회 분할(4구간) · 시작 30일 전 회사에 신청",
+     "pay": "1~3개월 통상임금 100%(상한 250만) · 4~6개월 100%(상한 200만) · 7개월~ 80%(상한 160만) · 사후지급금 폐지(전액 즉시 지급)",
+     "apply": "회사에 신청서 제출 → 회사가 고용24에 확인서 등록 → 본인이 고용24에서 급여 신청"},
+    {"name": "⏰ 육아기 근로시간 단축", "who": "만 12세(초6) 이하 자녀를 둔 근로자", "period": "최대 36개월 (미사용 육아휴직 기간 2배 가산 전환 가능)",
+     "point": "주 15~35시간으로 단축 · 휴직이 부담스러울 때 대안",
+     "pay": "최초 주 10시간 단축분 통상임금 100% (2026년 상한 월 250만원) · 나머지 단축분 80% (상한 160만원)",
+     "apply": "회사 신청 → 고용24 급여 신청"},
+]
+
+# ==========================================
 # 육아 가이드 데이터 (0~24개월)
 # ==========================================
 BABY_CARE = [
@@ -719,7 +770,7 @@ st.markdown("<p style='text-align:center; color:#888; margin-bottom:24px;'>임�
 # ==========================================
 # 탭 구성 (8개)
 # ==========================================
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📅 주차별 가이드",
     "🥗 음식 안전",
     "💊 약물 안전",
@@ -727,6 +778,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "👶 육아 백과",
     "💬 AI 상담",
     "🚨 응급·진통",
+    "👨‍👩‍👧 휴가·휴직",
     "📋 준비 도구",
 ])
 
@@ -1377,10 +1429,190 @@ with tab7:
             st.warning("⚠️ 간격이 좁아지고 있어요. 계속 관찰하세요.")
 
 # ──────────────────────────────────────────
-# TAB 8: 📋 준비 도구
-# (체중 트래커 · 준비물 체크리스트 · 정부 지원 · 마음 체크 · 홈 화면 추가)
+# TAB 8: 👨‍👩‍👧 휴가·휴직 (제도 요약 + 계산기) (NEW)
 # ──────────────────────────────────────────
 with tab8:
+    st.markdown("### 👨‍👩‍👧 출산휴가·육아휴직 한눈에 보기")
+    st.markdown("""
+    <div class="card card-orange" style="margin-bottom:16px;">
+        <div class="card-title card-title-orange">⚠️ 기준 안내 (2026-07 기준)</div>
+        아래 내용과 계산 결과는 <b>2026년 시행 기준(고용노동부 고시·고용보험법령)</b>을 반영한 <b>참고용 추정치</b>입니다.
+        상한액·제도는 매년 바뀌고, 통상임금 산정은 회사마다 다르므로
+        <b>정확한 금액은 고용24(work24.go.kr) 모의계산과 회사 인사팀 확인</b>이 우선입니다.
+        회사 취업규칙에 법정 기준보다 유리한 규정이 있을 수도 있어요.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── 제도 요약 카드 ──────────────────────
+    for lv in LEAVE_SUMMARY:
+        with st.expander(f"{lv['name']} — {lv['period']}"):
+            st.markdown(f"""
+            <div class="card card-blue" style="margin-bottom:0;">
+                <b>대상:</b> {lv['who']}<br>
+                <b>기간:</b> {lv['period']}<br>
+                <b>핵심 포인트:</b> {lv['point']}<br>
+                <b>급여:</b> {lv['pay']}<br>
+                <b>신청:</b> {lv['apply']}
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── 계산기 1: 출산전후휴가 날짜·급여 ──────
+    st.markdown("#### 🗓️ 출산전후휴가 계산기 (엄마)")
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        mat_due = st.date_input("출산(예정)일", due_date, key="mat_due")
+    with m2:
+        mat_type = st.selectbox("구분", ["단태아", "다태아"], key="mat_type")
+    with m3:
+        mat_wage = st.number_input("월 통상임금 (원)", min_value=0, value=3_000_000, step=100_000, key="mat_wage")
+    mat_company = st.radio("회사 규모", ["우선지원대상기업 (중소기업 등)", "대규모 기업"], horizontal=True, key="mat_comp")
+
+    rule = LEAVE_RULES["출산전후휴가"]
+    total_d = rule["총일수"][mat_type]
+    post_min = rule["출산후최소"][mat_type]
+    paid_d = rule["유급일수"][mat_type]
+    cap_total = rule["급여상한_총액"][mat_type]
+    pre_max = total_d - post_min  # 출산 전 최대 사용 가능일
+    earliest_start = mat_due - timedelta(days=pre_max - 1)
+    latest_end = mat_due + timedelta(days=post_min)
+
+    monthly_cap = 2_200_000  # 2026년 월(30일) 기준 상한
+    eb_monthly = min(mat_wage, monthly_cap)  # 고용보험 월 지급 추정
+    if mat_company.startswith("우선지원"):
+        eb_total = round(cap_total * min(mat_wage / monthly_cap, 1.0)) if mat_wage < monthly_cap else cap_total
+        employer_extra = max(0, (mat_wage - monthly_cap)) * (paid_d // 30)  # 유급구간 상한 초과분 사업주 부담
+        pay_desc = f"고용보험에서 전체 {total_d}일 지원 (총 상한 {cap_total:,}원)"
+    else:
+        eb_total = eb_monthly * ((total_d - paid_d) // 30)  # 마지막 무급구간만 고용보험
+        employer_extra = mat_wage * (paid_d // 30)          # 최초 유급구간은 사업주 통상임금 100%
+        pay_desc = f"최초 {paid_d}일 사업주 유급 + 마지막 {total_d - paid_d}일 고용보험 (월 상한 {monthly_cap:,}원)"
+
+    st.markdown(f"""
+    <div class="card card-green" style="margin-top:8px;">
+        <div class="card-title card-title-green">계산 결과</div>
+        <b>총 휴가일수:</b> {total_d}일 (역일 기준) · 출산 후 <b>{post_min}일 이상</b> 반드시 확보<br>
+        <b>가장 빠른 시작 가능일:</b> {earliest_start.strftime('%Y.%m.%d')} (출산 전 최대 {pre_max}일)<br>
+        <b>휴가 종료(예상):</b> {latest_end.strftime('%Y.%m.%d')} 전후<br>
+        <b>급여 구조:</b> {pay_desc}<br>
+        <b>고용보험 수령 추정:</b> 약 {eb_total:,}원
+        {f"+ 사업주 유급분 약 {employer_extra:,}원" if employer_extra > 0 else ""}<br>
+        <span style="color:#888; font-size:0.82rem;">※ 출산이 예정일보다 늦어져 출산 후 {post_min}일이 부족해지면 휴가는 연장되지만 연장분은 무급일 수 있어요.
+        미숙아 출산 시 100일로 확대(2026년 총 상한 7,333,330원). 정확한 금액은 고용24 모의계산 필수.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── 계산기 2: 배우자 출산휴가 ─────────────
+    st.markdown("#### 👨 배우자 출산휴가 계산기 (아빠)")
+    p1, p2 = st.columns(2)
+    with p1:
+        pat_birth = st.date_input("아기 출생일 (예정일)", due_date, key="pat_birth")
+    with p2:
+        pat_wage = st.number_input("아빠 월 통상임금 (원)", min_value=0, value=3_500_000, step=100_000, key="pat_wage")
+    pat_company = st.radio("회사 규모", ["우선지원대상기업 (중소기업 등)", "대규모 기업"], horizontal=True, key="pat_comp")
+
+    p_rule = LEAVE_RULES["배우자출산휴가"]
+    pat_deadline = pat_birth + timedelta(days=p_rule["사용기한_일"])
+    # 통상임금 20일분 추정: 월 통상임금 ÷ 209시간 × 8시간 × 20일 (주 40시간 기준 근사치)
+    pat_daily = pat_wage / 209 * 8
+    pat_20d = round(pat_daily * p_rule["일수"])
+    pat_cap = p_rule["급여상한_20일"]
+    if pat_company.startswith("우선지원"):
+        pat_eb = min(pat_20d, pat_cap)
+        pat_employer = max(0, pat_20d - pat_cap)
+        pat_desc = f"고용보험이 20일 전체 지원 (상한 {pat_cap:,}원) — 초과분은 사업주 부담"
+    else:
+        pat_eb = 0
+        pat_employer = pat_20d
+        pat_desc = "대규모 기업은 사업주가 20일 전체 유급 부담 (고용보험 지원 없음)"
+
+    st.markdown(f"""
+    <div class="card card-green" style="margin-top:8px;">
+        <div class="card-title card-title-green">계산 결과</div>
+        <b>휴가일수:</b> 20일 (근무일 기준 — 주말·공휴일 제외, 연속 사용 시 실제 약 4주)<br>
+        <b>사용 기한:</b> 출생일부터 120일 이내 → <b>{pat_deadline.strftime('%Y.%m.%d')}까지</b><br>
+        <b>분할:</b> 3회까지 분할 가능 (총 4개 구간)<br>
+        <b>급여 구조:</b> {pat_desc}<br>
+        <b>20일분 통상임금 추정:</b> 약 {pat_20d:,}원
+        (고용보험 약 {pat_eb:,}원{f" + 사업주 약 {pat_employer:,}원" if pat_employer > 0 else ""})<br>
+        <span style="color:#888; font-size:0.82rem;">※ 20일분 통상임금은 주 40시간(월 209시간) 기준 근사 계산입니다.
+        실제는 회사 급여 규정에 따라 다르니 인사팀에 확인하세요. 휴가 미부여 시 사업주 과태료 500만원.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── 계산기 3: 육아휴직 급여 ───────────────
+    st.markdown("#### 👶 육아휴직 급여 계산기 (엄마·아빠 각각)")
+    g1, g2, g3 = st.columns(3)
+    with g1:
+        pl_wage = st.number_input("월 통상임금 (원)", min_value=0, value=3_000_000, step=100_000, key="pl_wage")
+    with g2:
+        pl_months = st.number_input("휴직 개월 수", min_value=1, max_value=18, value=12, key="pl_months")
+    with g3:
+        pl_66 = st.checkbox("6+6 부모육아휴직제 적용", key="pl_66",
+                            help="생후 18개월 내 부모 모두 육아휴직 사용 시 첫 6개월 상한 인상 (각자 적용)")
+
+    pl_rule = LEAVE_RULES["육아휴직"]
+    monthly_pays = []
+    for m in range(1, int(pl_months) + 1):
+        if pl_66 and m <= 6:
+            rate, cap = 1.00, pl_rule["육육상한"][m - 1]
+        else:
+            for limit, r, c in pl_rule["급여구간"]:
+                if m <= limit:
+                    rate, cap = r, c
+                    break
+        pay = min(pl_wage * rate, cap)
+        pay = max(pay, pl_rule["하한"]) if pl_wage > 0 else 0
+        monthly_pays.append(round(pay))
+    pl_total = sum(monthly_pays)
+
+    seg_html = ""
+    seg_ranges = [(1, 3), (4, 6), (7, 12), (13, 18)]
+    for s, e in seg_ranges:
+        seg = [monthly_pays[i - 1] for i in range(s, min(e, int(pl_months)) + 1) if i <= int(pl_months)]
+        if seg:
+            if len(set(seg)) == 1:
+                seg_html += f"<b>{s}~{min(e, int(pl_months))}개월:</b> 월 {seg[0]:,}원<br>"
+            else:
+                seg_html += f"<b>{s}~{min(e, int(pl_months))}개월:</b> 월 {min(seg):,}~{max(seg):,}원<br>"
+
+    over12_warn = ""
+    if pl_months > 12:
+        over12_warn = "<span style='color:#e67e22; font-weight:700;'>⚠️ 13개월 이후는 부모 모두 각 3개월 이상 사용 / 한부모 / 중증장애아동 부모 조건 충족 시에만 가능해요.</span><br>"
+
+    st.markdown(f"""
+    <div class="card card-green" style="margin-top:8px;">
+        <div class="card-title card-title-green">계산 결과 (1인 기준)</div>
+        {seg_html}
+        <b>총 수령 추정액 ({int(pl_months)}개월):</b>
+        <span style="font-size:1.3rem; font-weight:900; color:#ff6b6b;">약 {pl_total:,}원</span><br>
+        {over12_warn}
+        <span style="color:#888; font-size:0.82rem;">※ 하한 월 70만원 적용. 사후지급금은 폐지되어 전액 휴직 중 지급됩니다.
+        6+6은 부모 각자에게 적용되므로 두 분 모두 계산해 합산해 보세요.
+        구간별 상한은 변경될 수 있으니 최종 확인은 고용24 모의계산으로.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="card card-purple">
+        <div class="card-title card-title-purple">📌 신청 절차 요약 (육아휴직)</div>
+        1️⃣ <b>휴직 시작 30일 전</b>까지 회사에 육아휴직 신청서 제출<br>
+        2️⃣ 회사가 고용24에 <b>육아휴직 확인서</b> 등록<br>
+        3️⃣ 휴직 시작 1개월 후부터 본인이 <b>고용24에서 급여 신청</b> (매월 또는 일괄 — 종료 후 12개월 이내)<br>
+        4️⃣ 조건: 고용보험 피보험 단위기간 180일 이상 · 만 8세(초2) 이하 자녀 (임신 중 사용 가능)
+    </div>
+    """, unsafe_allow_html=True)
+
+# ──────────────────────────────────────────
+# TAB 9: 📋 준비 도구
+# (체중 트래커 · 준비물 체크리스트 · 정부 지원 · 마음 체크 · 홈 화면 추가)
+# ──────────────────────────────────────────
+with tab9:
     st.markdown("### 📋 임신·출산 준비 도구")
 
     # ── 1. 체중 트래커 (BMI 연동 개선) ──────
