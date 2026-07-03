@@ -3,6 +3,8 @@ from openai import OpenAI
 from datetime import datetime, timedelta, timezone
 import requests
 import json
+import re
+import base64
 
 # ==========================================
 # 핵심 설정
@@ -17,7 +19,7 @@ def save_to_sheets(type_val, content, status=""):
     try:
         r = requests.post(GAS_URL, data=json.dumps(data), headers={"Content-Type": "application/json"}, timeout=10)
         return r.status_code == 200
-    except:
+    except Exception:
         return False
 
 # ==========================================
@@ -61,6 +63,7 @@ h1, h2, h3 { font-family: 'Noto Sans KR', sans-serif !important; }
 .card-purple{ border-top-color: #a29bfe; }
 .card-orange{ border-top-color: #fd9644; }
 .card-teal  { border-top-color: #00cec9; }
+.card-red   { border-top-color: #e74c3c; }
 
 .card-title {
     font-size: 1.1rem; font-weight: 800;
@@ -71,6 +74,7 @@ h1, h2, h3 { font-family: 'Noto Sans KR', sans-serif !important; }
 .card-title-purple { color: #6c5ce7; }
 .card-title-orange { color: #e67e22; }
 .card-title-teal   { color: #00b894; }
+.card-title-red    { color: #e74c3c; }
 
 .badge {
     display: inline-block; padding: 3px 10px;
@@ -96,17 +100,20 @@ h1, h2, h3 { font-family: 'Noto Sans KR', sans-serif !important; }
 .food-no   { color: #e74c3c; font-weight: 700; }
 .food-warn { color: #e67e22; font-weight: 700; }
 
-.exam-row {
-    display: flex; align-items: flex-start;
-    border-bottom: 1px solid #f5e6e8; padding: 12px 0;
+.flow-step {
+    background:#fff; border-radius:12px; padding:12px 16px; margin-bottom:8px;
+    border-left:4px solid #e74c3c; box-shadow:0 2px 8px rgba(0,0,0,0.04);
+    font-size:0.92rem; line-height:1.6;
 }
-.exam-week { width: 90px; font-weight: 800; color: #ff6b6b; flex-shrink: 0; }
-.exam-body { flex: 1; font-size: 0.93rem; line-height: 1.7; }
+.flow-num {
+    display:inline-block; background:#e74c3c; color:#fff; font-weight:800;
+    width:24px; height:24px; border-radius:50%; text-align:center; line-height:24px;
+    margin-right:8px; font-size:0.85rem;
+}
 
-.baby-month-card {
-    background: #fff; border-radius: 16px; padding: 20px;
-    border-left: 5px solid #a29bfe; margin-bottom: 14px;
-    box-shadow: 0 3px 12px rgba(0,0,0,0.05);
+.milestone-box {
+    background:#fff8f0; border-radius:12px; padding:10px 14px; margin-bottom:8px;
+    border-left:4px solid #fd9644; font-size:0.85rem;
 }
 
 .sidebar-title { font-size:1.3rem; font-weight:800; color:#ff6b6b; text-align:center; display:block; padding-top:8px; }
@@ -264,6 +271,7 @@ EXAM_SCHEDULE = [
 
 # ==========================================
 # 음식 안전 가이드 데이터
+# (수은 관련 분류는 식약처 '임신·수유 여성 생선 안전 섭취 가이드' 기준 참고)
 # ==========================================
 FOOD_GUIDE = {
     "단백질·육류": [
@@ -273,10 +281,10 @@ FOOD_GUIDE = {
         {"name": "닭고기 (완전히 익힌 것)", "status": "ok", "reason": "저지방 고단백. 반드시 완전히 익힐 것"},
     ],
     "해산물·생선": [
-        {"name": "오메가3 풍부 생선(고등어·연어 익힌 것)", "status": "ok", "reason": "태아 뇌 발달에 필수적인 DHA 공급"},
+        {"name": "오메가3 풍부 생선(고등어·연어 익힌 것)", "status": "ok", "reason": "태아 뇌 발달에 필수적인 DHA 공급. 일반어류는 주 2~3회 수준 권장"},
         {"name": "생선회·초밥", "status": "no", "reason": "리스테리아·기생충 감염 위험"},
-        {"name": "참치 통조림", "status": "warn", "reason": "수은 함량—주 1~2캔 이하"},
-        {"name": "고등어·상어·황새치·킹 마카렐", "status": "no", "reason": "수은 함량 높음—완전 금지"},
+        {"name": "참치 통조림", "status": "warn", "reason": "수은 함량—주 1~2캔 이하 (최신 권장량은 식약처 가이드 확인)"},
+        {"name": "상어·황새치·참다랑어 등 심해성 어류", "status": "no", "reason": "메틸수은 함량 높음—섭취 제한 대상"},
         {"name": "새우·조개 (완전히 익힌 것)", "status": "ok", "reason": "저지방 단백질 공급"},
         {"name": "굴·조개 생것", "status": "no", "reason": "비브리오·노로바이러스 감염 위험"},
     ],
@@ -312,6 +320,136 @@ FOOD_GUIDE = {
 }
 
 # ==========================================
+# 💊 약물 안전 가이드 (NEW)
+# ※ 아래 분류는 일반적으로 알려진 정보이며, 실제 복용은
+#   반드시 산부인과 전문의·약사 또는 마더세이프(1588-7309) 상담 후 결정하세요.
+# ==========================================
+DRUG_GUIDE = {
+    "해열·진통제": [
+        {"name": "아세트아미노펜 (타이레놀)", "status": "ok", "reason": "임신 중 해열·진통에 일반적으로 우선 고려되는 성분. 단, 권장 용량 내 단기 사용 원칙이며 복용 전 의사·약사 확인"},
+        {"name": "이부프로펜·NSAIDs (부루펜 등)", "status": "no", "reason": "특히 임신 20주 이후 태아 신장·양수량에 영향 가능성으로 사용 제한 권고. 임신 중 전 기간 자가 복용 금지"},
+        {"name": "아스피린", "status": "warn", "reason": "저용량은 특정 고위험 산모에게 의사가 처방하는 경우가 있으나, 자가 판단 복용은 금지"},
+    ],
+    "감기·알레르기": [
+        {"name": "일부 항히스타민제 (클로르페니라민 등)", "status": "warn", "reason": "비교적 오래 사용된 성분이지만 제품·시기별로 다르므로 반드시 약사·의사 확인 후"},
+        {"name": "코감기약 (슈도에페드린 등 혈관수축제)", "status": "warn", "reason": "임신 초기에는 특히 주의. 의사 상담 없이 복용하지 않기"},
+        {"name": "종합감기약", "status": "warn", "reason": "여러 성분 복합—성분별 안전성이 다르므로 단일 성분 약을 상담 후 선택하는 것이 원칙"},
+        {"name": "생리식염수 코세척·가습", "status": "ok", "reason": "약물 아닌 비약물 요법—코막힘 완화에 안전하게 사용 가능"},
+    ],
+    "소화기": [
+        {"name": "제산제 (알긴산·수산화마그네슘 계열)", "status": "warn", "reason": "속쓰림에 흔히 사용되나 성분별 차이 있음—약사에게 '임신 중'임을 알리고 선택"},
+        {"name": "변비약 (차전자피 등 팽창성)", "status": "ok", "reason": "식이섬유 계열은 비교적 안전한 편. 자극성 변비약은 상담 후"},
+        {"name": "자극성 변비약 (비사코딜 등)", "status": "warn", "reason": "장기간·과량 사용 주의. 식이·수분 개선이 우선"},
+        {"name": "유산균 (프로바이오틱스)", "status": "ok", "reason": "일반적으로 사용 가능. 제품 성분 확인"},
+    ],
+    "항생제 (처방 시)": [
+        {"name": "페니실린·아목시실린 계열", "status": "ok", "reason": "의사 처방 하에 임신 중 비교적 안전하게 사용되는 계열"},
+        {"name": "세팔로스포린 계열", "status": "ok", "reason": "의사 처방 하에 사용 가능한 계열"},
+        {"name": "테트라사이클린 계열", "status": "no", "reason": "태아 치아·뼈 발달에 영향—임신 중 금기"},
+        {"name": "퀴놀론 계열 (시프로플록사신 등)", "status": "no", "reason": "임신 중 일반적으로 사용하지 않는 계열"},
+    ],
+    "피부·기타": [
+        {"name": "이소트레티노인 (여드름약, 로아큐탄 등)", "status": "no", "reason": "심각한 기형 유발—임신 중 절대 금기. 복용 중이었다면 즉시 의사 상담"},
+        {"name": "스테로이드 연고 (약한 등급, 소량)", "status": "warn", "reason": "부위·기간에 따라 다름—의사 처방·지시에 따라"},
+        {"name": "경구 무좀약·항진균제", "status": "warn", "reason": "성분별 차이 큼—반드시 의사 상담"},
+        {"name": "한약·건강기능식품", "status": "warn", "reason": "'천연'이 안전을 의미하지 않음—성분 확인 후 전문가 상담 필수"},
+    ],
+}
+
+# ==========================================
+# 🚨 응급 상황 행동 플로우 (NEW)
+# ==========================================
+EMERGENCY_FLOW = [
+    {
+        "title": "🌊 파수 (양수가 흘러내림)",
+        "urgency": "즉시 병원",
+        "steps": [
+            "당황하지 말고 패드(또는 큰 수건)를 대세요",
+            "샤워·탕목욕 하지 마세요 (감염 위험)",
+            "가능한 눕거나 비스듬히 기대어 이동 준비",
+            "병원에 전화해 파수 사실과 도착 예정 시간을 알리세요",
+            "양수 색이 초록·갈색이면 반드시 병원에 미리 말하세요",
+        ],
+    },
+    {
+        "title": "⏱️ 규칙적인 진통",
+        "urgency": "간격 확인 후 병원",
+        "steps": [
+            "아래 배뭉침 타이머로 간격·지속시간을 기록하세요",
+            "초산: 5분 간격 규칙적 진통이 1시간 지속되면 병원 출발 (병원 지침 우선)",
+            "경산: 진행이 빠를 수 있으니 10분 간격부터 병원과 상의",
+            "출산 가방·서류 챙기고, 이동 중 아내를 혼자 두지 마세요",
+        ],
+    },
+    {
+        "title": "🩸 질 출혈",
+        "urgency": "양에 따라 판단",
+        "steps": [
+            "만삭 전후 소량의 피 섞인 점액(이슬)은 출산이 가까워진 신호일 수 있어요",
+            "생리처럼 흐르는 선홍색 출혈은 즉시 병원 — 절대 기다리지 마세요",
+            "출혈 + 복통 동반 시 응급실로 바로 이동",
+        ],
+    },
+    {
+        "title": "👶 태동 감소",
+        "urgency": "2시간 기준 확인",
+        "steps": [
+            "왼쪽으로 누워 조용한 곳에서 태동을 세어보세요",
+            "간식·찬 물을 마신 후 다시 확인해 보세요",
+            "2시간 동안 10회 미만이면 즉시 병원에 연락 — 기다리지 마세요",
+        ],
+    },
+    {
+        "title": "🤕 심한 두통·시야 이상·윗배 통증",
+        "urgency": "즉시 병원 (전자간증 의심)",
+        "steps": [
+            "갑작스러운 심한 두통, 눈앞이 번쩍이거나 흐려짐, 오른쪽 윗배 통증, 갑작스런 부종은 임신중독증(전자간증) 신호일 수 있어요",
+            "혈압을 잴 수 있으면 측정하고, 즉시 병원에 연락하세요",
+            "자가 진통제 복용으로 버티지 마세요",
+        ],
+    },
+    {
+        "title": "🌡️ 38도 이상 고열",
+        "urgency": "당일 진료",
+        "steps": [
+            "체온을 기록하고 병원에 연락하세요",
+            "해열은 의사·약사 상담 후 (일반적으로 아세트아미노펜이 우선 고려되나 자가 판단 금지)",
+            "고열 + 배뭉침·분비물 이상 동반 시 즉시 내원",
+        ],
+    },
+]
+
+# ==========================================
+# 🎉 마일스톤 (NEW) — 주차 기준
+# ==========================================
+MILESTONES = [
+    (12, "1차 기형아 검사 마감 주간"),
+    (13, "안정기 진입 🎉"),
+    (20, "임신 절반! 정밀 초음파 시기"),
+    (24, "임신성 당뇨 검사 시작"),
+    (28, "3분기 시작 — 검진 2주 간격"),
+    (34, "조산 시에도 생존율이 크게 높아지는 시기"),
+    (35, "GBS 검사 · 출산 가방 완성 목표"),
+    (37, "만삭 진입 🎉"),
+    (40, "출산 예정일 💖"),
+]
+
+# ==========================================
+# 🏛️ 정부 지원·행정 절차 (NEW)
+# ※ 지원 금액·조건은 매년 변경됩니다. 반드시 정부24·복지로에서 최신 기준을 확인하세요.
+# ==========================================
+GOV_SUPPORT = [
+    {"name": "임신·출산 진료비 지원 (국민행복카드)", "when": "임신 확인 직후", "how": "산부인과에서 임신확인서 발급 → 카드사·복지로 신청", "note": "진료비·약제비 바우처. 다태아는 지원액 상이"},
+    {"name": "맘편한 임신 원스톱 서비스", "when": "임신 확인 후", "how": "정부24에서 임신 관련 지원을 한 번에 통합 신청", "note": "엽산·철분제, 교통비(일부 지자체) 등 포함"},
+    {"name": "첫만남이용권", "when": "출생 후", "how": "출생신고 시 행정복지센터 또는 복지로에서 신청", "note": "출생아 대상 바우처 — 금액은 복지로에서 확인"},
+    {"name": "부모급여 / 아동수당", "when": "출생 후 60일 이내 신청 권장", "how": "행정복지센터 또는 복지로", "note": "출생일 기준 소급 지급 조건이 있어 60일 내 신청이 유리"},
+    {"name": "출생신고", "when": "출생 후 1개월 이내 (법정 기한)", "how": "주소지 행정복지센터 또는 온라인(대법원 전자가족관계등록시스템)", "note": "병원 출생증명서 필요. 기한 경과 시 과태료"},
+    {"name": "산모·신생아 건강관리 지원 (산후도우미)", "when": "출산예정일 40일 전 ~ 출산 후 30일", "how": "보건소 또는 복지로 신청", "note": "소득 기준·지자체별 확대 여부 확인 필요"},
+    {"name": "지자체 출산지원금·축하용품", "when": "지자체별 상이", "how": "거주지 시·군·구청 홈페이지 확인", "note": "지역별 차이가 크므로 거주지 기준 확인"},
+    {"name": "직장인: 출산휴가·배우자 출산휴가·육아휴직", "when": "출산 전후", "how": "회사 인사팀 + 고용보험 (고용24)", "note": "급여 지원 조건·기간은 고용노동부 최신 기준 확인"},
+]
+
+# ==========================================
 # 육아 가이드 데이터 (0~24개월)
 # ==========================================
 BABY_CARE = [
@@ -335,14 +473,14 @@ BABY_CARE = [
         "sleep": "하루 14~16시간. 밤 수유가 2~3회 필요해요.",
         "milestones": ["사회적 미소(꼭 찍어두세요!)", "배밀이 자세에서 고개 들기", "소리에 고개 돌리기"],
         "care": "터미 타임(배 엎드리기) 하루 여러 번, 1~2분씩 연습해요.",
-        "caution": "예방접종: BCG, B형간염, 뇌수막염(Hib), 폐렴구균, DPT, 소아마비",
+        "caution": "예방접종: B형간염, 뇌수막염(Hib), 폐렴구균, DTaP, 소아마비 등 — 일정은 예방접종도우미 확인",
     },
     {
         "range": "4~6개월",
         "color": "card-blue",
         "title_color": "card-title-blue",
         "development": "뒤집기를 시작해요! 물건을 잡고 입으로 가져가요. 이유식 준비가 됩니다.",
-        "feeding": "4개월부터 이유식 시작 가능. 쌀미음부터 시작해 한 가지씩 추가해요.",
+        "feeding": "이유식은 보통 생후 4~6개월 사이 시작. 쌀미음부터 시작해 한 가지씩 추가해요.",
         "sleep": "밤 수면이 길어져요. 6개월이면 6~8시간 연속 수면이 가능해요.",
         "milestones": ["뒤집기 (앞→뒤, 뒤→앞)", "양손으로 물건 잡기", "자기 이름에 반응"],
         "care": "이유식은 쌀미음→채소 퓨레→과일 퓨레 순서. 알레르기 식품은 4~5일 간격으로 하나씩.",
@@ -396,16 +534,17 @@ BABY_CARE = [
 
 # ==========================================
 # 예방접종 스케줄
+# ※ 표준 예방접종 일정은 변경될 수 있으니 질병관리청 '예방접종도우미'에서 최신 일정을 확인하세요.
 # ==========================================
 VACCINATION = [
-    {"age": "출생 시", "vaccines": ["B형 간염 1차", "BCG (피내용)"]},
+    {"age": "출생 시", "vaccines": ["B형 간염 1차", "BCG (생후 4주 이내)"]},
     {"age": "1개월", "vaccines": ["B형 간염 2차"]},
     {"age": "2개월", "vaccines": ["DTaP 1차", "폴리오(IPV) 1차", "뇌수막염(Hib) 1차", "폐렴구균(PCV) 1차", "로타바이러스 1차"]},
     {"age": "4개월", "vaccines": ["DTaP 2차", "폴리오(IPV) 2차", "Hib 2차", "PCV 2차", "로타바이러스 2차"]},
     {"age": "6개월", "vaccines": ["DTaP 3차", "폴리오(IPV) 3차", "Hib 3차", "PCV 3차", "B형 간염 3차", "인플루엔자(매년)"]},
     {"age": "12~15개월", "vaccines": ["MMR 1차", "수두 1차", "Hib 4차", "PCV 4차", "A형 간염 1차"]},
-    {"age": "18개월", "vaccines": ["DTaP 4차", "A형 간염 2차"]},
-    {"age": "24개월", "vaccines": ["일본뇌염 1·2차"]},
+    {"age": "12~23개월", "vaccines": ["일본뇌염 1·2차 (불활성화 백신 기준)"]},
+    {"age": "15~18개월", "vaccines": ["DTaP 4차", "A형 간염 2차 (1차 후 6개월 이상 간격)"]},
     {"age": "4~6세", "vaccines": ["DTaP 5차", "폴리오 4차", "MMR 2차", "수두 2차"]},
 ]
 
@@ -501,6 +640,7 @@ with st.sidebar:
     total_days = max(0, (today_date - lmp_date).days)
     current_weeks, current_days_rem = total_days // 7, total_days % 7
     d_day = (due_date - today_date).days
+    baby_mode = d_day <= 0  # 출산 예정일 이후엔 육아 모드
 
     st.markdown(f"""
     <div class="sb-box">
@@ -510,6 +650,17 @@ with st.sidebar:
         <span style="font-size:0.8rem; color:#aaa;">예정일: {due_date.strftime("%Y.%m.%d")}</span>
     </div>
     """, unsafe_allow_html=True)
+
+    # 🎉 다가오는 마일스톤 (NEW)
+    upcoming = [(w, label) for (w, label) in MILESTONES if w > current_weeks][:2]
+    if not baby_mode and upcoming:
+        st.markdown("**🎉 다가오는 기념일**")
+        for w, label in upcoming:
+            m_date = lmp_date + timedelta(weeks=w)
+            dd = (m_date - today_date).days
+            st.markdown(f'<div class="milestone-box"><b>D-{dd}</b> · {w}주차<br>{label}</div>', unsafe_allow_html=True)
+    if not baby_mode and 0 < d_day <= 100 and d_day % 10 == 0:
+        st.balloons()
 
     with st.expander("🌡️ 오늘 엄마 컨디션 기록"):
         cond = st.select_slider("상태", options=["힘듦", "보통", "좋음"], key="cs", label_visibility="collapsed")
@@ -541,7 +692,7 @@ with st.sidebar:
             st.success("✅ 정상! 2시간 내 10회 달성")
         elif elapsed_min >= 120:
             st.warning("⚠️ 2시간 경과, 10회 미만이면 병원에 연락하세요")
-        st.caption(f"측정 시작: {st.session_state.kick_start.strftime('%H:%M')}")
+        st.caption(f"측정 시작: {st.session_state.kick_start.strftime('%H:%M')} · 경과 {elapsed_min}분")
         ck1, ck2 = st.columns(2)
         with ck1:
             if st.button("👶 태동!", key="kick_btn"):
@@ -566,16 +717,22 @@ st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:6px;'>�
 st.markdown("<p style='text-align:center; color:#888; margin-bottom:24px;'>임신 초기부터 육아까지 — 이레 엄마·아빠를 위한 백과사전</p>", unsafe_allow_html=True)
 
 # ==========================================
-# 탭 구성
+# 탭 구성 (8개)
 # ==========================================
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📅 주차별 가이드",
-    "🥗 음식 안전 가이드",
-    "🏥 검사 일정",
+    "🥗 음식 안전",
+    "💊 약물 안전",
+    "🏥 검사·기록",
     "👶 육아 백과",
     "💬 AI 상담",
+    "🚨 응급·진통",
     "📋 준비 도구",
 ])
+
+STATUS_ICON = {"ok": "⭕", "warn": "⚠️", "no": "❌"}
+STATUS_CLASS = {"ok": "food-ok", "warn": "food-warn", "no": "food-no"}
+STATUS_COLOR = {"ok": "#27ae60", "warn": "#e67e22", "no": "#e74c3c"}
 
 # ──────────────────────────────────────────
 # TAB 1: 주차별 가이드
@@ -620,6 +777,18 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
 
+        # ✅ 아빠 미션 체크 (NEW)
+        mission_key = f"dad_mission_done_w{selected_week}"
+        done = st.checkbox(f"✅ {selected_week}주차 아빠 미션 완료!", key=mission_key)
+        if done and not st.session_state.get(mission_key + "_saved"):
+            save_to_sheets("아빠미션", f"{selected_week}주차 미션 완료: {sel['dad']}")
+            st.session_state[mission_key + "_saved"] = True
+            st.toast("아빠 미션 완료 기록! 💪")
+        done_weeks = sorted([int(k.replace("dad_mission_done_w", "")) for k, v in st.session_state.items()
+                             if k.startswith("dad_mission_done_w") and not k.endswith("_saved") and v])
+        if done_weeks:
+            st.caption(f"이번 세션 완료한 미션: {', '.join(str(w)+'주' for w in done_weeks)}")
+
         st.markdown(f"""
         <div class="card card-orange">
             <div class="card-title card-title-orange">⚠️ 이번 주 주의사항</div>
@@ -636,7 +805,6 @@ with tab1:
     for w in week_range:
         d = WEEK_DATA[w]
         is_current = (w == current_weeks)
-        border = "border: 2px solid #ff6b6b;" if is_current else ""
         current_label = " 👈 현재" if is_current else ""
         with st.expander(f"**{w}주차** — {d['size']}{current_label}"):
             cc1, cc2 = st.columns(2)
@@ -657,12 +825,10 @@ with tab2:
         <div class="card-title card-title-green">범례</div>
         <span class="food-ok">⭕ 안전 (추천)</span>&nbsp;&nbsp;
         <span class="food-warn">⚠️ 주의 (소량·조건부)</span>&nbsp;&nbsp;
-        <span class="food-no">❌ 금지</span>
+        <span class="food-no">❌ 금지</span><br>
+        <span style="color:#888; font-size:0.82rem;">※ 생선 수은 관련 기준은 식약처 '임신·수유 여성 생선 안전 섭취 가이드'를 참고했으며, 세부 권장량은 최신 자료로 확인하세요.</span>
     </div>
     """, unsafe_allow_html=True)
-
-    STATUS_ICON = {"ok": "⭕", "warn": "⚠️", "no": "❌"}
-    STATUS_CLASS = {"ok": "food-ok", "warn": "food-warn", "no": "food-no"}
 
     search_food = st.text_input("🔍 음식 검색", placeholder="예: 커피, 고등어, 달걀...")
 
@@ -676,7 +842,7 @@ with tab2:
             cls = STATUS_CLASS[item["status"]]
             st.markdown(f"""
             <div style="background:#fff; border-radius:12px; padding:14px 18px; margin-bottom:10px;
-                        box-shadow:0 2px 8px rgba(0,0,0,0.05); border-left:4px solid {'#27ae60' if item['status']=='ok' else '#e74c3c' if item['status']=='no' else '#e67e22'};">
+                        box-shadow:0 2px 8px rgba(0,0,0,0.05); border-left:4px solid {STATUS_COLOR[item['status']]};">
                 <span class="{cls}" style="font-size:1.1rem;">{icon} {item['name']}</span><br>
                 <span style="color:#666; font-size:0.88rem; margin-top:4px; display:block;">{item['reason']}</span>
             </div>
@@ -689,14 +855,68 @@ with tab2:
         <b>필수:</b> 엽산 400~800㎍ (임신 전~12주), 철분 30mg (16주 이후), 칼슘 1000mg<br>
         <b>권장:</b> 오메가3 (DHA 200mg 이상), 비타민D 600~2000IU<br>
         <b>주의:</b> 비타민A 과다 (선천성 기형 위험), 종합비타민 선택 시 성분 확인 필수<br>
-        <b>복용 시기:</b> 엽산은 임신 전부터, 철분은 식후 복용 (흡수 개선)
+        <b>복용 시기:</b> 엽산은 임신 전부터, 철분은 식후 복용 (흡수 개선)<br>
+        <span style="color:#888; font-size:0.82rem;">※ 개인 상태(빈혈·당뇨 등)에 따라 달라지므로 주치의와 상의하세요.</span>
     </div>
     """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────
-# TAB 3: 검사 일정
+# TAB 3: 💊 약물 안전 가이드 (NEW)
 # ──────────────────────────────────────────
 with tab3:
+    st.markdown("### 💊 임신 중 약물 안전 가이드")
+    st.markdown("""
+    <div class="card card-red" style="margin-bottom:16px;">
+        <div class="card-title card-title-red">⚠️ 반드시 읽어주세요</div>
+        아래 정보는 <b>일반적으로 알려진 참고 정보</b>이며, 임신 주차·개인 상태·제품 성분에 따라 판단이 달라집니다.<br>
+        <b>모든 약은 복용 전 산부인과 전문의 또는 약사와 상담</b>하고,
+        궁금한 약이 있으면 <b>마더세이프 상담센터 ☎ 1588-7309</b> (한국마더세이프전문상담센터)에 무료로 문의하세요.<br>
+        <span style="color:#e74c3c; font-weight:700;">이미 복용한 약이 걱정된다면 자책하지 말고 먼저 마더세이프에 전화하세요 — 대부분 괜찮은 경우가 많습니다.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="card card-green" style="margin-bottom:16px;">
+        <div class="card-title card-title-green">범례</div>
+        <span class="food-ok">⭕ 비교적 안전하다고 알려짐 (상담 후 사용)</span>&nbsp;&nbsp;
+        <span class="food-warn">⚠️ 조건부·시기별 주의 (반드시 상담)</span>&nbsp;&nbsp;
+        <span class="food-no">❌ 금기 또는 사용 제한 권고</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    search_drug = st.text_input("🔍 약물 검색", placeholder="예: 타이레놀, 감기약, 제산제...")
+
+    for category, items in DRUG_GUIDE.items():
+        filtered = [i for i in items if not search_drug or search_drug.lower() in i["name"].lower() or search_drug in i["name"]]
+        if not filtered:
+            continue
+        st.markdown(f"#### {category}")
+        for item in filtered:
+            icon = STATUS_ICON[item["status"]]
+            cls = STATUS_CLASS[item["status"]]
+            st.markdown(f"""
+            <div style="background:#fff; border-radius:12px; padding:14px 18px; margin-bottom:10px;
+                        box-shadow:0 2px 8px rgba(0,0,0,0.05); border-left:4px solid {STATUS_COLOR[item['status']]};">
+                <span class="{cls}" style="font-size:1.1rem;">{icon} {item['name']}</span><br>
+                <span style="color:#666; font-size:0.88rem; margin-top:4px; display:block;">{item['reason']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.divider()
+    st.markdown("""
+    <div class="card card-blue">
+        <div class="card-title card-title-blue">💡 약국·병원에서 이렇게 말하세요</div>
+        1. "현재 <b>임신 ○○주차</b>입니다"라고 먼저 알리기<br>
+        2. 복용 중인 영양제·다른 약을 함께 말하기<br>
+        3. 처방받은 약 이름을 사진으로 남겨두기 (AI 상담 탭에서 사진으로 물어볼 수도 있어요)<br>
+        4. 애매하면 마더세이프 ☎ 1588-7309
+    </div>
+    """, unsafe_allow_html=True)
+
+# ──────────────────────────────────────────
+# TAB 4: 검사 일정 + 검진 결과 기록장 + 주치의 질문 노트
+# ──────────────────────────────────────────
+with tab4:
     st.markdown("### 🏥 산전·산후 검사 일정표")
 
     st.markdown("""
@@ -721,7 +941,12 @@ with tab3:
     }
 
     for period_data in EXAM_SCHEDULE:
-        with st.expander(f"📌 {period_data['period']}", expanded=(str(current_weeks) in period_data['period'].replace('주','').split('~')[0])):
+        # 🔧 버그 수정: 범위를 숫자로 파싱해 현재 주차 포함 여부 판단
+        nums = re.findall(r"\d+", period_data["period"])
+        lo, hi = int(nums[0]), int(nums[-1])
+        is_now = lo <= current_weeks <= hi
+        label = f"📌 {period_data['period']}" + (" 👈 지금" if is_now else "")
+        with st.expander(label, expanded=is_now):
             for exam in period_data["exams"]:
                 badge_cls = TYPE_BADGE.get(exam["type"], "badge-gray")
                 st.markdown(f"""
@@ -734,7 +959,75 @@ with tab3:
                 """, unsafe_allow_html=True)
 
     st.divider()
+
+    # 📝 주치의 질문 노트 (NEW)
+    st.markdown("### 📝 주치의 질문 노트")
+    st.caption("진료실에 들어가면 꼭 까먹는 질문들 — 미리 적어두고 검진 때 열어보세요. (시트에도 함께 저장됩니다)")
+    if "doc_questions" not in st.session_state:
+        st.session_state.doc_questions = []
+    new_q = st.text_input("다음 검진 때 물어볼 것", key="doc_q_input", placeholder="예: 철분제 복용 후 속이 불편한데 바꿔도 되나요?")
+    qc1, qc2 = st.columns([1, 1])
+    with qc1:
+        if st.button("➕ 질문 추가", key="doc_q_add"):
+            if new_q.strip():
+                st.session_state.doc_questions.append({"q": new_q.strip(), "time": now.strftime("%m/%d %H:%M")})
+                save_to_sheets("주치의질문", new_q.strip())
+                st.rerun()
+    with qc2:
+        if st.session_state.doc_questions and st.button("🗑️ 목록 비우기", key="doc_q_clear"):
+            st.session_state.doc_questions = []
+            st.rerun()
+    for i, q in enumerate(st.session_state.doc_questions, 1):
+        st.markdown(f"""
+        <div style="background:#fff; border-radius:12px; padding:12px 16px; margin-bottom:8px;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.04); border-left:4px solid #a29bfe;">
+            <b>Q{i}.</b> {q['q']} <span style="color:#aaa; font-size:0.78rem;">({q['time']})</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # 📈 검진 결과 기록장 (NEW)
+    st.markdown("### 📈 검진 결과 기록장")
+    st.caption("검진일마다 태아 예상 체중(EFW)과 의사 코멘트를 기록하세요. 시트에 함께 저장되며, 그래프는 이번 세션 입력분 기준입니다.")
+    if "checkup_records" not in st.session_state:
+        st.session_state.checkup_records = []
+    rc1, rc2, rc3 = st.columns(3)
+    with rc1:
+        rec_week = st.number_input("검진 시 주차", min_value=4, max_value=42, value=int(min(max(current_weeks, 4), 42)), key="rec_week")
+    with rc2:
+        rec_efw = st.number_input("태아 예상 체중 (g)", min_value=0, max_value=6000, value=0, step=10, key="rec_efw")
+    with rc3:
+        rec_bp = st.text_input("엄마 혈압 (선택)", key="rec_bp", placeholder="예: 110/70")
+    rec_note = st.text_input("의사 코멘트·메모", key="rec_note", placeholder="예: 성장 정상, 다음 검진 2주 뒤")
+    if st.button("💾 검진 기록 저장", key="rec_save"):
+        record = {"week": int(rec_week), "efw": int(rec_efw), "bp": rec_bp, "note": rec_note, "date": now.strftime("%Y-%m-%d")}
+        st.session_state.checkup_records.append(record)
+        save_to_sheets("검진기록", json.dumps(record, ensure_ascii=False))
+        st.toast("검진 기록 저장 완료! 📈")
+        st.rerun()
+
+    if st.session_state.checkup_records:
+        recs = sorted(st.session_state.checkup_records, key=lambda r: r["week"])
+        efw_rows = {f"{r['week']}주": r["efw"] for r in recs if r["efw"] > 0}
+        if len(efw_rows) >= 2:
+            st.markdown("**태아 체중 추이 (g)**")
+            st.line_chart(efw_rows)
+        st.markdown("**기록 목록**")
+        for r in recs[::-1]:
+            bp_str = f" · 혈압 {r['bp']}" if r["bp"] else ""
+            efw_str = f" · EFW {r['efw']}g" if r["efw"] > 0 else ""
+            st.markdown(f"""
+            <div style="background:#fff; border-radius:12px; padding:12px 16px; margin-bottom:8px;
+                        box-shadow:0 2px 8px rgba(0,0,0,0.04); border-left:4px solid #00cec9;">
+                <b>{r['week']}주차</b> ({r['date']}){efw_str}{bp_str}<br>
+                <span style="color:#666; font-size:0.88rem;">{r['note']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.divider()
     st.markdown("### 🍼 신생아 예방접종 일정")
+    st.caption("※ 표준 예방접종 일정은 변경될 수 있으니 질병관리청 '예방접종도우미(nip.kdca.go.kr)'에서 최신 일정을 확인하세요.")
     for v in VACCINATION:
         badges = "".join([f'<span class="badge badge-purple">{vax}</span>' for vax in v["vaccines"]])
         st.markdown(f"""
@@ -745,10 +1038,59 @@ with tab3:
         """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────
-# TAB 4: 육아 백과
+# TAB 5: 육아 백과 + 육아 로그
 # ──────────────────────────────────────────
-with tab4:
+with tab5:
     st.markdown("### 👶 월령별 육아 백과 (0~24개월)")
+    if baby_mode:
+        st.success("🎉 이레가 태어났네요! 아래 '육아 로그'로 수유·기저귀·수면을 기록해 보세요.")
+
+    # 🍼 육아 로그 (NEW) — 출산 후 자동 강조
+    with st.expander("🍼 육아 로그 (수유·기저귀·수면 기록)", expanded=baby_mode):
+        st.caption("버튼 한 번으로 기록! 시트에도 함께 저장됩니다. (화면 목록은 이번 세션 기준)")
+        if "baby_log" not in st.session_state:
+            st.session_state.baby_log = []
+
+        def add_baby_log(kind):
+            entry = {"kind": kind, "time": datetime.now(KST)}
+            st.session_state.baby_log.append(entry)
+            save_to_sheets("육아로그", kind, entry["time"].strftime("%Y-%m-%d %H:%M"))
+
+        bl1, bl2, bl3, bl4 = st.columns(4)
+        with bl1:
+            if st.button("🍼 수유", key="log_feed"):
+                add_baby_log("수유")
+                st.rerun()
+        with bl2:
+            if st.button("💩 기저귀", key="log_diaper"):
+                add_baby_log("기저귀")
+                st.rerun()
+        with bl3:
+            if st.button("😴 잠들었어요", key="log_sleep"):
+                add_baby_log("수면시작")
+                st.rerun()
+        with bl4:
+            if st.button("🌞 깼어요", key="log_wake"):
+                add_baby_log("기상")
+                st.rerun()
+
+        last_feed = next((e for e in reversed(st.session_state.baby_log) if e["kind"] == "수유"), None)
+        if last_feed:
+            mins = int((datetime.now(KST) - last_feed["time"]).total_seconds() // 60)
+            st.markdown(f"<div style='text-align:center; font-size:1.1rem;'>마지막 수유: <b style='color:#ff6b6b;'>{mins}분 전</b> ({last_feed['time'].strftime('%H:%M')})</div>", unsafe_allow_html=True)
+
+        if st.session_state.baby_log:
+            today_log = [e for e in st.session_state.baby_log if e["time"].date() == today_date]
+            feed_n = sum(1 for e in today_log if e["kind"] == "수유")
+            diaper_n = sum(1 for e in today_log if e["kind"] == "기저귀")
+            st.caption(f"오늘: 수유 {feed_n}회 · 기저귀 {diaper_n}회")
+            st.markdown("**최근 기록**")
+            for e in st.session_state.baby_log[-8:][::-1]:
+                st.markdown(f"- {e['time'].strftime('%H:%M')} — {e['kind']}")
+            if st.button("🗑️ 로그 초기화", key="log_clear"):
+                st.session_state.baby_log = []
+                st.rerun()
+
     st.markdown("<p style='color:#888;'>이레가 태어난 후 월령별 발달·수유·수면·주의사항을 한눈에 확인하세요.</p>", unsafe_allow_html=True)
 
     for baby in BABY_CARE:
@@ -790,8 +1132,8 @@ with tab4:
                 <div class="card-title card-title-orange">🛁 돌봄 포인트</div>
                 {baby['care']}
             </div>
-            <div class="card" style="border-top-color:#e74c3c;">
-                <div class="card-title" style="color:#e74c3c;">⚠️ 주의사항</div>
+            <div class="card card-red">
+                <div class="card-title card-title-red">⚠️ 주의사항</div>
                 {baby['caution']}
             </div>
             """, unsafe_allow_html=True)
@@ -812,77 +1154,152 @@ with tab4:
     """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────
-# TAB 5: AI 상담
+# TAB 6: AI 상담 (사진 업로드 + 대화 저장 + 초기화 버그 수정)
 # ──────────────────────────────────────────
-with tab5:
-    st.markdown(f"### 💬 AI 상담 — 이레 아빠 전용 챗봇")
+with tab6:
+    st.markdown("### 💬 AI 상담 — 이레 아빠 전용 챗봇")
     st.markdown(f"""
     <div class="card card-blue" style="margin-bottom:16px;">
         <div class="card-title card-title-blue">📌 이용 안내</div>
         현재 <b>{current_weeks}주차</b> 이레 맞춤으로 답변드려요.<br>
-        증상·음식·약물·태교·육아 무엇이든 물어보세요!<br>
-        <span style="color:#e74c3c; font-size:0.85rem;">※ AI 답변은 참고용이며, 이상 증상은 반드시 전문의와 상담하세요.</span>
+        증상·음식·약물·태교·육아 무엇이든 물어보세요! <b>📷 사진(약 포장·음식 등)도 올릴 수 있어요.</b><br>
+        <span style="color:#e74c3c; font-size:0.85rem;">※ AI 답변은 참고용이며, 이상 증상은 반드시 전문의와 상담하세요. 약물은 마더세이프 1588-7309.</span>
     </div>
     """, unsafe_allow_html=True)
 
+    # 🔧 개선: 클라이언트 초기화 실패 시 탭이 죽지 않도록
+    client = None
+    try:
+        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    except Exception:
+        st.warning("⚠️ OpenAI API 키가 설정되지 않아 AI 상담을 사용할 수 없어요. (.streamlit/secrets.toml에 OPENAI_API_KEY 설정)")
+
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차네요 😊 증상, 먹거리, 약물, 태교, 육아 뭐든 편하게 물어봐요! 🥰"}
+            {"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차네요 😊 증상, 먹거리, 약물, 태교, 육아 뭐든 편하게 물어봐요! 사진으로도 물어볼 수 있어요 📷"}
         ]
+
+    # 📷 사진 업로드 (NEW)
+    uploaded_img = st.file_uploader("📷 사진으로 질문하기 (약 포장, 음식, 성분표 등)", type=["png", "jpg", "jpeg"], key="chat_img")
+    if uploaded_img:
+        st.image(uploaded_img, width=200, caption="질문과 함께 이 사진을 보낼게요")
 
     for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    prompt = st.chat_input("증상, 음식, 약물, 태교, 육아 등 무엇이든 물어보세요...")
 
-    if prompt := st.chat_input("증상, 음식, 약물, 태교, 육아 등 무엇이든 물어보세요..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    if prompt and client is None:
+        st.error("API 키 설정 후 이용해 주세요.")
+    elif prompt:
+        # 화면·기록용 텍스트 (사진 첨부 여부 표시)
+        display_prompt = prompt + (" 📷(사진 첨부)" if uploaded_img else "")
+        st.session_state.messages.append({"role": "user", "content": display_prompt})
         with st.chat_message("user"):
-            st.markdown(prompt)
+            st.markdown(display_prompt)
         with st.chat_message("assistant"):
             sys_msg = {
                 "role": "system",
                 "content": (
-                    f"너는 산부인과·소아과 전문 지식을 갖춘 따뜻하고 다정한 AI 가이드야. "
+                    f"너는 산부인과·소아과 관련 지식을 갖춘 따뜻하고 다정한 AI 가이드야. "
                     f"지금 이레 엄마는 임신 {current_weeks}주차이고, 출산 예정일은 {due_date.strftime('%Y년 %m월 %d일')}이야. "
-                    f"임신·육아·태교·음식·약물 관련 질문에 전문적이고 근거 있게 답하되, "
+                    f"임신·육아·태교·음식·약물 관련 질문에 근거 있게 답하되, 확실하지 않은 것은 확실하지 않다고 말해. "
                     f"먹거리 질문엔 ⭕(안전) ❌(금지) ⚠️(주의)로 명확히 표시해줘. "
-                    f"약물 질문엔 반드시 전문의 상담을 권고하고, "
-                    f"이상 증상엔 마더세이프(1588-7309) 또는 즉시 병원 방문을 안내해줘. "
+                    f"약물 질문엔 반드시 전문의·약사 상담과 마더세이프(1588-7309)를 안내하고, 사진 속 약이라도 최종 판단은 전문가에게 맡기라고 해줘. "
+                    f"응급이 의심되는 증상(출혈, 파수, 태동 감소, 심한 두통 등)엔 즉시 병원 방문을 최우선으로 안내해줘. "
                     f"답변 끝에 항상 이레 엄마를 응원하는 한마디를 덧붙여줘. "
                     f"답변은 한국어로, 마크다운 형식으로 가독성 좋게 작성해줘."
                 )
             }
-            res = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[sys_msg] + st.session_state.messages,
-                stream=True,
-            )
-            full_msg = st.write_stream(res)
+            # 히스토리(텍스트) + 현재 메시지(사진 있으면 vision 형식)
+            api_messages = [sys_msg] + [
+                {"role": m["role"], "content": m["content"]} for m in st.session_state.messages[:-1]
+            ]
+            if uploaded_img:
+                img_b64 = base64.b64encode(uploaded_img.getvalue()).decode("utf-8")
+                mime = "image/png" if uploaded_img.name.lower().endswith(".png") else "image/jpeg"
+                api_messages.append({
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}},
+                    ],
+                })
+            else:
+                api_messages.append({"role": "user", "content": prompt})
+
+            try:
+                res = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=api_messages,
+                    stream=True,
+                )
+                full_msg = st.write_stream(res)
+            except Exception as e:
+                full_msg = f"⚠️ 답변 생성 중 오류가 발생했어요: {e}"
+                st.error(full_msg)
         st.session_state.messages.append({"role": "assistant", "content": full_msg})
 
-        if st.button("🔄 대화 초기화"):
+    # 🔧 버그 수정: 초기화·저장 버튼을 chat_input 블록 밖으로 이동
+    bc1, bc2 = st.columns(2)
+    with bc1:
+        if st.button("🔄 대화 초기화", key="chat_reset"):
             st.session_state.messages = [
                 {"role": "assistant", "content": f"새로운 대화를 시작해요! 현재 {current_weeks}주차 이레 엄마, 무엇이든 물어보세요 🥰"}
             ]
             st.rerun()
+    with bc2:
+        if st.button("💾 대화 시트에 저장", key="chat_save"):
+            convo_text = "\n".join([f"[{m['role']}] {m['content']}" for m in st.session_state.messages])
+            if save_to_sheets("AI상담기록", convo_text[:4000]):
+                st.toast("대화 저장 완료! 📊")
+            else:
+                st.error("저장 실패 — 네트워크를 확인해 주세요.")
 
 # ──────────────────────────────────────────
-# TAB 6: 준비 도구
+# TAB 7: 🚨 응급·진통 (행동 플로우 + 배뭉침 타이머)
 # ──────────────────────────────────────────
-with tab6:
-    st.markdown("### 📋 임신·출산 준비 도구")
-
-    # ── 1. 배뭉침 타이머 ──────────────────
-    st.markdown("#### ⏱️ 배뭉침 타이머")
+with tab7:
+    st.markdown("### 🚨 상황별 응급 행동 가이드")
     st.markdown("""
-    <div class="card card-orange" style="margin-bottom:16px;">
-        <div class="card-title card-title-orange">사용법</div>
-        배뭉침이 시작되면 <b>시작</b>, 끝나면 <b>종료</b>를 누르세요.<br>
-        <span style="color:#e74c3c;">간격이 10분 이하로 규칙적이면 즉시 병원으로!</span>
+    <div class="card card-red" style="margin-bottom:16px;">
+        <div class="card-title card-title-red">먼저 아래 연락처를 채워두세요</div>
+        급할 때 찾지 않도록, 지금 미리 입력해 두세요. (이 화면에 표시용 — 앱을 껐다 켜면 다시 입력해야 해요)
     </div>
     """, unsafe_allow_html=True)
+    ec1, ec2 = st.columns(2)
+    with ec1:
+        hosp_name = st.text_input("🏥 출산 병원 이름", key="hosp_name", placeholder="예: ○○여성병원 분만실")
+    with ec2:
+        hosp_tel = st.text_input("📞 병원 전화번호", key="hosp_tel", placeholder="예: 02-1234-5678")
+    if hosp_name or hosp_tel:
+        st.markdown(f"""
+        <div style="background:#fff0f0; border:2px solid #e74c3c; border-radius:14px; padding:16px; text-align:center; margin-bottom:16px;">
+            <span style="font-size:1.1rem; font-weight:800; color:#e74c3c;">🏥 {hosp_name if hosp_name else '병원'}</span><br>
+            <span style="font-size:1.5rem; font-weight:900;">{hosp_tel if hosp_tel else '전화번호를 입력하세요'}</span><br>
+            <span style="color:#888; font-size:0.82rem;">응급 시: 119 · 약물 상담: 마더세이프 1588-7309</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    for flow in EMERGENCY_FLOW:
+        with st.expander(f"{flow['title']} — {flow['urgency']}"):
+            for i, step in enumerate(flow["steps"], 1):
+                st.markdown(f'<div class="flow-step"><span class="flow-num">{i}</span>{step}</div>', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="card card-orange" style="margin-top:8px;">
+        <div class="card-title card-title-orange">가진통 vs 진진통 구분</div>
+        <b>가진통(브랙스턴-힉스):</b> 불규칙, 강도 일정, 자세를 바꾸거나 쉬면 사라짐<br>
+        <b>진진통:</b> 규칙적, 점점 강해지고 간격이 짧아짐, 쉬어도 계속됨 → 아래 타이머로 확인!
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ⏱️ 배뭉침 타이머 (기존 기능 이동)
+    st.markdown("### ⏱️ 배뭉침(진통) 타이머")
+    st.caption("💡 경과 시간은 버튼을 누를 때마다 갱신돼요. 진행 중 화면을 갱신하려면 '⏱️ 현재 시간 갱신'을 누르세요.")
 
     if "contractions" not in st.session_state:
         st.session_state.contractions = []
@@ -893,10 +1310,10 @@ with tab6:
     with ct1:
         if st.session_state.contraction_start is None:
             if st.button("▶️ 배뭉침 시작", use_container_width=True, key="con_start"):
-                st.session_state.contraction_start = now
+                st.session_state.contraction_start = datetime.now(KST)
                 st.rerun()
         else:
-            elapsed_sec = int((now - st.session_state.contraction_start).total_seconds())
+            elapsed_sec = int((datetime.now(KST) - st.session_state.contraction_start).total_seconds())
             st.markdown(
                 f"<div style='background:#fff3cd; border-radius:12px; padding:14px; text-align:center;'>"
                 f"⏱️ <b>진행 중</b><br>"
@@ -905,10 +1322,13 @@ with tab6:
                 f"</div>",
                 unsafe_allow_html=True,
             )
+            if st.button("⏱️ 현재 시간 갱신", key="con_refresh"):
+                st.rerun()
     with ct2:
         if st.session_state.contraction_start is not None:
             if st.button("⏹️ 배뭉침 종료", use_container_width=True, key="con_end"):
-                duration_sec = int((now - st.session_state.contraction_start).total_seconds())
+                end_time = datetime.now(KST)
+                duration_sec = int((end_time - st.session_state.contraction_start).total_seconds())
                 interval_min = None
                 if st.session_state.contractions:
                     last_end = st.session_state.contractions[-1]["end"]
@@ -916,7 +1336,7 @@ with tab6:
                 st.session_state.contractions.append({
                     "no": len(st.session_state.contractions) + 1,
                     "start": st.session_state.contraction_start,
-                    "end": now,
+                    "end": end_time,
                     "duration_sec": duration_sec,
                     "interval_min": interval_min,
                 })
@@ -956,9 +1376,14 @@ with tab6:
         elif intervals and min(intervals[-3:]) <= 15:
             st.warning("⚠️ 간격이 좁아지고 있어요. 계속 관찰하세요.")
 
-    st.divider()
+# ──────────────────────────────────────────
+# TAB 8: 📋 준비 도구
+# (체중 트래커 · 준비물 체크리스트 · 정부 지원 · 마음 체크 · 홈 화면 추가)
+# ──────────────────────────────────────────
+with tab8:
+    st.markdown("### 📋 임신·출산 준비 도구")
 
-    # ── 2. 체중 트래커 ────────────────────
+    # ── 1. 체중 트래커 (BMI 연동 개선) ──────
     st.markdown("#### ⚖️ 체중 트래커")
     wt1, wt2, wt3 = st.columns(3)
     with wt1:
@@ -971,6 +1396,7 @@ with tab6:
     gain = round(cur_weight - pre_weight, 1)
     bmi = pre_weight / ((height_cm / 100) ** 2)
 
+    # 미국의학한림원(IOM 2009) 권고 기준 — 임신 전 BMI별 총 증가 권장 범위
     if bmi < 18.5:
         bmi_label, rec_min, rec_max = "저체중", 12.5, 18.0
     elif bmi < 25.0:
@@ -980,42 +1406,52 @@ with tab6:
     else:
         bmi_label, rec_min, rec_max = "비만", 5.0, 9.0
 
+    # 🔧 개선: 주차별 예상 범위를 BMI별 총 권장량과 연동
+    # 1분기(~13주) 총 0.5~2kg 가정, 이후 잔여분을 40주까지 선형 배분
+    FIRST_TRI_MIN, FIRST_TRI_MAX = 0.5, 2.0
     if current_weeks <= 13:
-        exp_min = round((current_weeks / 13) * 1.5, 1)
-        exp_max = round((current_weeks / 13) * 2.0, 1)
+        exp_min = round(FIRST_TRI_MIN * (current_weeks / 13), 1)
+        exp_max = round(FIRST_TRI_MAX * (current_weeks / 13), 1)
     else:
-        exp_min = round(1.5 + (current_weeks - 13) * 0.35, 1)
-        exp_max = round(2.0 + (current_weeks - 13) * 0.50, 1)
+        frac = min((current_weeks - 13) / 27, 1.0)
+        exp_min = round(FIRST_TRI_MIN + (rec_min - FIRST_TRI_MIN) * frac, 1)
+        exp_max = round(FIRST_TRI_MAX + (rec_max - FIRST_TRI_MAX) * frac, 1)
 
     if gain < exp_min:
-        wt_status = ("🔵 체중 증가가 적어요", "#2c7be5", "단백질·철분 섭취를 늘려보세요.")
+        wt_status = ("🔵 체중 증가가 적어요", "#2c7be5", "단백질·철분 섭취를 늘려보세요. 지속되면 주치의와 상의하세요.")
     elif gain <= exp_max:
         wt_status = ("✅ 적정 범위예요!", "#27ae60", "잘 유지하고 계세요. 균형 잡힌 식단을 유지하세요.")
     else:
-        wt_status = ("🟠 증가량이 많아요", "#e67e22", "고칼로리·고나트륨 음식을 줄이고 가벼운 산책을 해보세요.")
+        wt_status = ("🟠 증가량이 많아요", "#e67e22", "고칼로리·고나트륨 음식을 줄이고 가벼운 산책을 해보세요. 급격한 증가는 주치의 상담.")
 
     st.markdown(f"""
     <div class="card card-blue" style="margin-top:12px;">
         <div class="card-title card-title-blue">분석 결과</div>
         <b>임신 전 BMI:</b> {bmi:.1f} ({bmi_label})<br>
-        <b>총 체중 증가량:</b> <span style="font-size:1.3rem; font-weight:900; color:#ff6b6b;">+{gain}kg</span><br>
-        <b>{current_weeks}주차 권장 증가 범위:</b> +{exp_min}~{exp_max}kg<br>
+        <b>총 체중 증가량:</b> <span style="font-size:1.3rem; font-weight:900; color:#ff6b6b;">{'+' if gain >= 0 else ''}{gain}kg</span><br>
+        <b>{current_weeks}주차 예상 증가 범위 (BMI 연동):</b> +{exp_min}~{exp_max}kg<br>
         <b>임신 전체 권장 증가량:</b> {rec_min}~{rec_max}kg<br><br>
         <span style="color:{wt_status[1]}; font-weight:700;">{wt_status[0]}</span><br>
-        <span style="color:#666; font-size:0.9rem;">{wt_status[2]}</span>
+        <span style="color:#666; font-size:0.9rem;">{wt_status[2]}</span><br>
+        <span style="color:#aaa; font-size:0.78rem;">※ 권장 범위는 일반 기준(IOM 2009)이며 다태아·개인 상태에 따라 다릅니다. 주치의 안내가 우선입니다.</span>
     </div>
     """, unsafe_allow_html=True)
 
+    if st.button("💾 오늘 체중 시트에 기록", key="wt_save"):
+        if save_to_sheets("체중기록", f"{current_weeks}주차 {cur_weight}kg (증가 {gain}kg)"):
+            st.toast("체중 기록 저장 완료! ⚖️")
+
     st.divider()
 
-    # ── 3. 출산 준비물 체크리스트 ─────────
+    # ── 2. 출산 준비물 체크리스트 (버그 수정) ─────────
     st.markdown("#### 🎒 출산 준비물 체크리스트")
 
-    if "checklist_state" not in st.session_state:
-        st.session_state.checklist_state = {}
-
     total_items = sum(len(v) for v in CHECKLIST.values())
-    checked_count = sum(1 for v in st.session_state.checklist_state.values() if v)
+    checked_count = sum(
+        1 for category, items in CHECKLIST.items()
+        for item in items
+        if st.session_state.get(f"chk_{category}_{item}", False)
+    )
     progress_val = checked_count / total_items if total_items > 0 else 0
 
     st.markdown(f"**전체 진행률: {checked_count} / {total_items}개 완료**")
@@ -1024,23 +1460,114 @@ with tab6:
         st.success("🎉 모든 준비가 완료됐어요! 이레 곧 만나요!")
 
     for category, items in CHECKLIST.items():
-        cat_checked = sum(1 for item in items if st.session_state.checklist_state.get(f"{category}_{item}", False))
+        cat_checked = sum(1 for item in items if st.session_state.get(f"chk_{category}_{item}", False))
         with st.expander(f"{category} ({cat_checked}/{len(items)})"):
             for item in items:
-                key = f"{category}_{item}"
-                if key not in st.session_state.checklist_state:
-                    st.session_state.checklist_state[key] = False
-                checked = st.checkbox(item, value=st.session_state.checklist_state[key], key=f"chk_{key}")
-                st.session_state.checklist_state[key] = checked
+                st.checkbox(item, key=f"chk_{category}_{item}")
 
     cl1, cl2 = st.columns(2)
     with cl1:
         if st.button("✅ 전체 완료 표시", use_container_width=True):
+            # 🔧 버그 수정: 위젯 key를 직접 변경해야 화면에 반영됨
             for category, items in CHECKLIST.items():
                 for item in items:
-                    st.session_state.checklist_state[f"{category}_{item}"] = True
+                    st.session_state[f"chk_{category}_{item}"] = True
             st.rerun()
     with cl2:
         if st.button("🔄 전체 초기화", use_container_width=True):
-            st.session_state.checklist_state = {}
+            for category, items in CHECKLIST.items():
+                for item in items:
+                    st.session_state[f"chk_{category}_{item}"] = False
             st.rerun()
+
+    st.divider()
+
+    # ── 3. 🏛️ 정부 지원·행정 절차 (NEW) ─────
+    st.markdown("#### 🏛️ 정부 지원금·행정 절차 체크")
+    st.markdown("""
+    <div class="card card-orange" style="margin-bottom:12px;">
+        <div class="card-title card-title-orange">⚠️ 확인 안내</div>
+        지원 <b>금액·소득 기준·신청 방법은 매년 바뀝니다.</b> 아래는 항목·시기 안내이며,
+        최신 기준은 <b>복지로(bokjiro.go.kr)</b>와 <b>정부24(gov.kr)</b>, 거주지 행정복지센터에서 꼭 확인하세요.
+    </div>
+    """, unsafe_allow_html=True)
+    for g in GOV_SUPPORT:
+        gk = f"gov_{g['name']}"
+        col_g1, col_g2 = st.columns([0.08, 0.92])
+        with col_g1:
+            st.checkbox("", key=gk, label_visibility="collapsed")
+        with col_g2:
+            done_style = "opacity:0.55;" if st.session_state.get(gk) else ""
+            st.markdown(f"""
+            <div style="background:#fff; border-radius:12px; padding:12px 16px; margin-bottom:8px; {done_style}
+                        box-shadow:0 2px 8px rgba(0,0,0,0.04); border-left:4px solid #fd9644;">
+                <b>{g['name']}</b> <span class="badge badge-orange">{g['when']}</span><br>
+                <span style="color:#666; font-size:0.88rem;">신청: {g['how']}<br>💡 {g['note']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── 4. 💗 엄마 마음 체크 (NEW) ───────────
+    st.markdown("#### 💗 엄마 마음 체크")
+    st.markdown("""
+    <div class="card card-purple" style="margin-bottom:12px;">
+        <div class="card-title card-title-purple">이건 진단이 아니에요</div>
+        임신·출산 전후엔 호르몬 변화로 기분이 크게 출렁이는 게 자연스러워요.
+        아래는 <b>스스로 돌아보는 참고용 체크</b>일 뿐, 어떤 진단도 아닙니다.<br>
+        다만 <b>가라앉는 기분이 2주 이상 대부분의 날 지속</b>되거나 일상이 힘들어지면,
+        산부인과 주치의나 정신건강 전문가와 꼭 이야기해 보세요. 도움을 받는 건 강한 선택이에요.
+    </div>
+    """, unsafe_allow_html=True)
+    mc1 = st.select_slider("요즘 웃거나 즐거운 일이", options=["예전처럼 있어요", "조금 줄었어요", "많이 줄었어요"], key="mind1")
+    mc2 = st.select_slider("잠은 (아기 때문이 아닌데도)", options=["잘 자요", "가끔 설쳐요", "자주 설쳐요"], key="mind2")
+    mc3 = st.select_slider("이유 없이 불안하거나 눈물이 나는 날이", options=["거의 없어요", "가끔 있어요", "자주 있어요"], key="mind3")
+    mind_free = st.text_area("지금 마음을 한 줄로 적어볼까요? (선택)", key="mind_free", placeholder="쓰는 것만으로도 정리가 돼요")
+
+    heavy = sum(1 for v in [mc1, mc2, mc3] if v in ("많이 줄었어요", "자주 설쳐요", "자주 있어요"))
+    if heavy >= 2:
+        st.markdown("""
+        <div class="card card-red">
+            <div class="card-title card-title-red">요즘 많이 힘드신 것 같아요</div>
+            혼자 견디지 않아도 돼요. 남편에게 이 화면을 보여주는 것부터 시작해도 좋아요.<br><br>
+            📞 <b>보건복지상담센터 129</b> (연중무휴)<br>
+            📞 <b>정신건강 위기상담 1577-0199</b><br>
+            🏥 다음 산부인과 검진 때 주치의에게 기분 변화를 꼭 말씀해 주세요.
+        </div>
+        """, unsafe_allow_html=True)
+    elif heavy == 1:
+        st.info("조금 지쳐 있는 날들이 있는 것 같아요. 산책·수다·충분한 휴식으로 스스로를 돌봐주시고, 계속되면 주치의와 이야기해 보세요.")
+    else:
+        st.success("마음 컨디션이 안정적인 편이네요. 지금처럼 자주 스스로를 돌봐주세요 💗")
+
+    if st.button("💾 마음 기록 저장", key="mind_save"):
+        content = f"웃음:{mc1} / 수면:{mc2} / 불안:{mc3} / 메모:{mind_free}"
+        if save_to_sheets("마음체크", content):
+            st.toast("마음 기록 저장 완료 💗")
+
+    st.divider()
+
+    # ── 5. 📱 홈 화면에 앱처럼 추가하기 (NEW) ─
+    with st.expander("📱 이 앱을 휴대폰 홈 화면에 추가하기"):
+        st.markdown("""
+**아이폰 (Safari)**
+1. Safari로 이 앱 주소를 열어요
+2. 하단 **공유 버튼(⬆️)** 탭
+3. **'홈 화면에 추가'** 선택 → 이름을 '이레 가이드'로 → 추가
+
+**안드로이드 (Chrome)**
+1. Chrome으로 이 앱 주소를 열어요
+2. 우측 상단 **⋮ 메뉴** 탭
+3. **'홈 화면에 추가'** 선택
+
+**⏰ 알림이 필요하다면 (검진일·영양제 등)**
+Streamlit 앱은 자체 푸시 알림이 없어요. 아이폰 **미리 알림** 또는 **캘린더**에
+검진 예약일·영양제 시간을 등록해서 함께 쓰는 걸 추천해요.
+        """)
+
+    st.markdown("""
+    <div style="text-align:center; color:#bbb; font-size:0.75rem; margin-top:24px;">
+        이 앱의 의학 정보는 참고용이며 진단·처방을 대신하지 않습니다.<br>
+        이상 증상 시 산부인과·소아과 전문의와 상담하세요. · 약물 상담: 마더세이프 1588-7309
+    </div>
+    """, unsafe_allow_html=True)
