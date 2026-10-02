@@ -686,7 +686,7 @@ with st.sidebar:
     verse, ref = bible_list[day_index]
     st.markdown(f'<div class="bible-box">"{verse}"<span class="bible-ref">— {ref} —</span></div>', unsafe_allow_html=True)
 
-    lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 3, 2).date())
+    lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 3, 15).date())
     due_date = lmp_date + timedelta(days=280)
     total_days = max(0, (today_date - lmp_date).days)
     current_weeks, current_days_rem = total_days // 7, total_days % 7
