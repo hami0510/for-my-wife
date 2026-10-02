@@ -5,6 +5,7 @@ import requests
 import json
 import re
 import base64
+import threading
 
 # ==========================================
 # 핵심 설정
@@ -676,6 +677,49 @@ now = datetime.now(KST)
 today_date = now.date()
 
 # ==========================================
+# 🔐 AI 상담 사용 제어 (비밀번호 + 하루 사용 횟수)
+# ==========================================
+def get_secret(key, default=None):
+    try:
+        return st.secrets[key]
+    except Exception:
+        return default
+
+AI_PASSWORD = get_secret("AI_PASSWORD") or get_secret("LETTER_PASSWORD")
+AI_DAILY_LIMIT = int(get_secret("AI_DAILY_LIMIT", 30))
+
+@st.cache_resource
+def _ai_usage_store():
+    # 앱 전체(모든 접속자)가 공유하는 사용량 저장소 — 앱 재시작 시 초기화
+    return {"date": "", "count": 0, "lock": threading.Lock()}
+
+def _reset_if_new_day(store):
+    today_str = datetime.now(KST).strftime("%Y-%m-%d")
+    if store["date"] != today_str:
+        store["date"], store["count"] = today_str, 0
+
+def ai_usage_today():
+    store = _ai_usage_store()
+    with store["lock"]:
+        _reset_if_new_day(store)
+        return store["count"]
+
+def ai_usage_try_consume(limit):
+    store = _ai_usage_store()
+    with store["lock"]:
+        _reset_if_new_day(store)
+        if store["count"] >= limit:
+            return False
+        store["count"] += 1
+        return True
+
+def ai_usage_refund():
+    # 답변 생성 중 오류가 나면 차감한 횟수를 돌려줌
+    store = _ai_usage_store()
+    with store["lock"]:
+        store["count"] = max(0, store["count"] - 1)
+
+# ==========================================
 # 사이드바
 # ==========================================
 with st.sidebar:
@@ -686,7 +730,7 @@ with st.sidebar:
     verse, ref = bible_list[day_index]
     st.markdown(f'<div class="bible-box">"{verse}"<span class="bible-ref">— {ref} —</span></div>', unsafe_allow_html=True)
 
-    # 🔧 변경: 출산 예정일 직접 입력 (병원 안내 예정일 기준) → LMP 자동 역산
+    # 주차는 마지막 생리 시작일(LMP) 기준, D-Day는 병원 안내 출산 예정일 기준
     lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 3, 15).date())
     due_date = st.date_input("출산 예정일", datetime(2026, 12, 7).date())
     total_days = max(0, (today_date - lmp_date).days)
@@ -703,7 +747,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # 🎉 다가오는 마일스톤 (NEW)
+    # 🎉 다가오는 마일스톤
     upcoming = [(w, label) for (w, label) in MILESTONES if w > current_weeks][:2]
     if not baby_mode and upcoming:
         st.markdown("**🎉 다가오는 기념일**")
@@ -758,7 +802,7 @@ with st.sidebar:
 
     st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
 
-    # 🔧 변경: 태교 편지 보러가기 — 비밀번호 잠금
+    # 🔒 태교 편지 보러가기 — 비밀번호 잠금
     if "letter_unlocked" not in st.session_state:
         st.session_state.letter_unlocked = False
 
@@ -768,7 +812,7 @@ with st.sidebar:
         with st.expander("🔒 태교 편지 보러가기"):
             pw = st.text_input("비밀번호", type="password", key="letter_pw")
             if st.button("확인", key="pw_btn"):
-                if pw == st.secrets["LETTER_PASSWORD"]:
+                if pw == get_secret("LETTER_PASSWORD"):
                     st.session_state.letter_unlocked = True
                     st.rerun()
                 else:
@@ -785,7 +829,7 @@ st.markdown("<h2 style='text-align:center; color:#ff6b6b; margin-bottom:6px;'>�
 st.markdown("<p style='text-align:center; color:#888; margin-bottom:24px;'>임신 초기부터 육아까지 — 이레 엄마·아빠를 위한 백과사전</p>", unsafe_allow_html=True)
 
 # ==========================================
-# 탭 구성 (8개)
+# 탭 구성 (9개)
 # ==========================================
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📅 주차별 가이드",
@@ -846,7 +890,7 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
 
-        # ✅ 아빠 미션 체크 (NEW)
+        # ✅ 아빠 미션 체크
         mission_key = f"dad_mission_done_w{selected_week}"
         done = st.checkbox(f"✅ {selected_week}주차 아빠 미션 완료!", key=mission_key)
         if done and not st.session_state.get(mission_key + "_saved"):
@@ -930,7 +974,7 @@ with tab2:
     """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────
-# TAB 3: 💊 약물 안전 가이드 (NEW)
+# TAB 3: 💊 약물 안전 가이드
 # ──────────────────────────────────────────
 with tab3:
     st.markdown("### 💊 임신 중 약물 안전 가이드")
@@ -1010,7 +1054,7 @@ with tab4:
     }
 
     for period_data in EXAM_SCHEDULE:
-        # 🔧 버그 수정: 범위를 숫자로 파싱해 현재 주차 포함 여부 판단
+        # 범위를 숫자로 파싱해 현재 주차 포함 여부 판단
         nums = re.findall(r"\d+", period_data["period"])
         lo, hi = int(nums[0]), int(nums[-1])
         is_now = lo <= current_weeks <= hi
@@ -1029,7 +1073,7 @@ with tab4:
 
     st.divider()
 
-    # 📝 주치의 질문 노트 (NEW)
+    # 📝 주치의 질문 노트
     st.markdown("### 📝 주치의 질문 노트")
     st.caption("진료실에 들어가면 꼭 까먹는 질문들 — 미리 적어두고 검진 때 열어보세요. (시트에도 함께 저장됩니다)")
     if "doc_questions" not in st.session_state:
@@ -1056,7 +1100,7 @@ with tab4:
 
     st.divider()
 
-    # 📈 검진 결과 기록장 (NEW)
+    # 📈 검진 결과 기록장
     st.markdown("### 📈 검진 결과 기록장")
     st.caption("검진일마다 태아 예상 체중(EFW)과 의사 코멘트를 기록하세요. 시트에 함께 저장되며, 그래프는 이번 세션 입력분 기준입니다.")
     if "checkup_records" not in st.session_state:
@@ -1114,7 +1158,7 @@ with tab5:
     if baby_mode:
         st.success("🎉 이레가 태어났네요! 아래 '육아 로그'로 수유·기저귀·수면을 기록해 보세요.")
 
-    # 🍼 육아 로그 (NEW) — 출산 후 자동 강조
+    # 🍼 육아 로그 — 출산 후 자동 강조
     with st.expander("🍼 육아 로그 (수유·기저귀·수면 기록)", expanded=baby_mode):
         st.caption("버튼 한 번으로 기록! 시트에도 함께 저장됩니다. (화면 목록은 이번 세션 기준)")
         if "baby_log" not in st.session_state:
@@ -1223,108 +1267,147 @@ with tab5:
     """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────
-# TAB 6: AI 상담 (사진 업로드 + 대화 저장 + 초기화 버그 수정)
+# TAB 6: AI 상담 (비밀번호 잠금 + 하루 사용 횟수 제한)
 # ──────────────────────────────────────────
 with tab6:
     st.markdown("### 💬 AI 상담 — 이레 아빠 전용 챗봇")
-    st.markdown(f"""
-    <div class="card card-blue" style="margin-bottom:16px;">
-        <div class="card-title card-title-blue">📌 이용 안내</div>
-        현재 <b>{current_weeks}주차</b> 이레 맞춤으로 답변드려요.<br>
-        증상·음식·약물·태교·육아 무엇이든 물어보세요! <b>📷 사진(약 포장·음식 등)도 올릴 수 있어요.</b><br>
-        <span style="color:#e74c3c; font-size:0.85rem;">※ AI 답변은 참고용이며, 이상 증상은 반드시 전문의와 상담하세요. 약물은 마더세이프 1588-7309.</span>
-    </div>
-    """, unsafe_allow_html=True)
 
-    # 🔧 개선: 클라이언트 초기화 실패 시 탭이 죽지 않도록
-    client = None
-    try:
-        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-    except Exception:
-        st.warning("⚠️ OpenAI API 키가 설정되지 않아 AI 상담을 사용할 수 없어요. (.streamlit/secrets.toml에 OPENAI_API_KEY 설정)")
+    if "ai_unlocked" not in st.session_state:
+        st.session_state.ai_unlocked = False
 
-    if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차네요 😊 증상, 먹거리, 약물, 태교, 육아 뭐든 편하게 물어봐요! 사진으로도 물어볼 수 있어요 📷"}
-        ]
-
-    # 📷 사진 업로드 (NEW)
-    uploaded_img = st.file_uploader("📷 사진으로 질문하기 (약 포장, 음식, 성분표 등)", type=["png", "jpg", "jpeg"], key="chat_img")
-    if uploaded_img:
-        st.image(uploaded_img, width=200, caption="질문과 함께 이 사진을 보낼게요")
-
-    for m in st.session_state.messages:
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
-
-    prompt = st.chat_input("증상, 음식, 약물, 태교, 육아 등 무엇이든 물어보세요...")
-
-    if prompt and client is None:
-        st.error("API 키 설정 후 이용해 주세요.")
-    elif prompt:
-        # 화면·기록용 텍스트 (사진 첨부 여부 표시)
-        display_prompt = prompt + (" 📷(사진 첨부)" if uploaded_img else "")
-        st.session_state.messages.append({"role": "user", "content": display_prompt})
-        with st.chat_message("user"):
-            st.markdown(display_prompt)
-        with st.chat_message("assistant"):
-            sys_msg = {
-                "role": "system",
-                "content": (
-                    f"너는 산부인과·소아과 관련 지식을 갖춘 따뜻하고 다정한 AI 가이드야. "
-                    f"지금 이레 엄마는 임신 {current_weeks}주차이고, 출산 예정일은 {due_date.strftime('%Y년 %m월 %d일')}이야. "
-                    f"임신·육아·태교·음식·약물 관련 질문에 근거 있게 답하되, 확실하지 않은 것은 확실하지 않다고 말해. "
-                    f"먹거리 질문엔 ⭕(안전) ❌(금지) ⚠️(주의)로 명확히 표시해줘. "
-                    f"약물 질문엔 반드시 전문의·약사 상담과 마더세이프(1588-7309)를 안내하고, 사진 속 약이라도 최종 판단은 전문가에게 맡기라고 해줘. "
-                    f"응급이 의심되는 증상(출혈, 파수, 태동 감소, 심한 두통 등)엔 즉시 병원 방문을 최우선으로 안내해줘. "
-                    f"답변 끝에 항상 이레 엄마를 응원하는 한마디를 덧붙여줘. "
-                    f"답변은 한국어로, 마크다운 형식으로 가독성 좋게 작성해줘."
-                )
-            }
-            # 히스토리(텍스트) + 현재 메시지(사진 있으면 vision 형식)
-            api_messages = [sys_msg] + [
-                {"role": m["role"], "content": m["content"]} for m in st.session_state.messages[:-1]
-            ]
-            if uploaded_img:
-                img_b64 = base64.b64encode(uploaded_img.getvalue()).decode("utf-8")
-                mime = "image/png" if uploaded_img.name.lower().endswith(".png") else "image/jpeg"
-                api_messages.append({
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}},
-                    ],
-                })
+    # 🔒 비밀번호 잠금
+    if not st.session_state.ai_unlocked:
+        st.markdown("""
+        <div class="card card-purple">
+            <div class="card-title card-title-purple">🔒 가족 전용 기능이에요</div>
+            AI 상담은 비밀번호를 입력해야 사용할 수 있어요.
+        </div>
+        """, unsafe_allow_html=True)
+        ai_pw = st.text_input("비밀번호", type="password", key="ai_pw")
+        if st.button("🔓 잠금 해제", key="ai_pw_btn"):
+            if AI_PASSWORD and ai_pw == AI_PASSWORD:
+                st.session_state.ai_unlocked = True
+                st.rerun()
             else:
-                api_messages.append({"role": "user", "content": prompt})
+                st.error("비밀번호가 맞지 않아요 🥲")
 
-            try:
-                res = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=api_messages,
-                    stream=True,
-                )
-                full_msg = st.write_stream(res)
-            except Exception as e:
-                full_msg = f"⚠️ 답변 생성 중 오류가 발생했어요: {e}"
-                st.error(full_msg)
-        st.session_state.messages.append({"role": "assistant", "content": full_msg})
+    else:
+        used = ai_usage_today()
+        remaining = max(0, AI_DAILY_LIMIT - used)
 
-    # 🔧 버그 수정: 초기화·저장 버튼을 chat_input 블록 밖으로 이동
-    bc1, bc2 = st.columns(2)
-    with bc1:
-        if st.button("🔄 대화 초기화", key="chat_reset"):
+        st.markdown(f"""
+        <div class="card card-blue" style="margin-bottom:16px;">
+            <div class="card-title card-title-blue">📌 이용 안내</div>
+            현재 <b>{current_weeks}주차</b> 이레 맞춤으로 답변드려요.<br>
+            증상·음식·약물·태교·육아 무엇이든 물어보세요! <b>📷 사진(약 포장·음식 등)도 올릴 수 있어요.</b><br>
+            <b>오늘 남은 질문: <span style="color:#ff6b6b;">{remaining}</span> / {AI_DAILY_LIMIT}회</b> (매일 자정 초기화)<br>
+            <span style="color:#e74c3c; font-size:0.85rem;">※ AI 답변은 참고용이며, 이상 증상은 반드시 전문의와 상담하세요. 약물은 마더세이프 1588-7309.</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 클라이언트 초기화 실패 시 탭이 죽지 않도록
+        client = None
+        try:
+            client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        except Exception:
+            st.warning("⚠️ OpenAI API 키가 설정되지 않아 AI 상담을 사용할 수 없어요. (.streamlit/secrets.toml에 OPENAI_API_KEY 설정)")
+
+        if "messages" not in st.session_state:
             st.session_state.messages = [
-                {"role": "assistant", "content": f"새로운 대화를 시작해요! 현재 {current_weeks}주차 이레 엄마, 무엇이든 물어보세요 🥰"}
+                {"role": "assistant", "content": f"안녕 이레 엄마! 현재 {current_weeks}주차네요 😊 증상, 먹거리, 약물, 태교, 육아 뭐든 편하게 물어봐요! 사진으로도 물어볼 수 있어요 📷"}
             ]
-            st.rerun()
-    with bc2:
-        if st.button("💾 대화 시트에 저장", key="chat_save"):
-            convo_text = "\n".join([f"[{m['role']}] {m['content']}" for m in st.session_state.messages])
-            if save_to_sheets("AI상담기록", convo_text[:4000]):
-                st.toast("대화 저장 완료! 📊")
-            else:
-                st.error("저장 실패 — 네트워크를 확인해 주세요.")
+
+        # 📷 사진 업로드
+        uploaded_img = st.file_uploader("📷 사진으로 질문하기 (약 포장, 음식, 성분표 등)", type=["png", "jpg", "jpeg"], key="chat_img")
+        if uploaded_img:
+            st.image(uploaded_img, width=200, caption="질문과 함께 이 사진을 보낼게요")
+
+        for m in st.session_state.messages:
+            with st.chat_message(m["role"]):
+                st.markdown(m["content"])
+
+        if remaining <= 0:
+            st.warning(f"🌙 오늘 AI 상담 가능 횟수({AI_DAILY_LIMIT}회)를 모두 사용했어요. 내일 다시 이용해 주세요. 급한 증상은 병원이나 마더세이프(1588-7309)로 연락하세요.")
+
+        prompt = st.chat_input(
+            "증상, 음식, 약물, 태교, 육아 등 무엇이든 물어보세요...",
+            disabled=(remaining <= 0),
+        )
+
+        if prompt and client is None:
+            st.error("API 키 설정 후 이용해 주세요.")
+        elif prompt and not ai_usage_try_consume(AI_DAILY_LIMIT):
+            st.warning(f"🌙 오늘 AI 상담 가능 횟수({AI_DAILY_LIMIT}회)를 모두 사용했어요. 내일 다시 이용해 주세요.")
+        elif prompt:
+            # 화면·기록용 텍스트 (사진 첨부 여부 표시)
+            display_prompt = prompt + (" 📷(사진 첨부)" if uploaded_img else "")
+            st.session_state.messages.append({"role": "user", "content": display_prompt})
+            with st.chat_message("user"):
+                st.markdown(display_prompt)
+            with st.chat_message("assistant"):
+                sys_msg = {
+                    "role": "system",
+                    "content": (
+                        f"너는 산부인과·소아과 관련 지식을 갖춘 따뜻하고 다정한 AI 가이드야. "
+                        f"지금 이레 엄마는 임신 {current_weeks}주차이고, 출산 예정일은 {due_date.strftime('%Y년 %m월 %d일')}이야. "
+                        f"임신·육아·태교·음식·약물 관련 질문에 근거 있게 답하되, 확실하지 않은 것은 확실하지 않다고 말해. "
+                        f"먹거리 질문엔 ⭕(안전) ❌(금지) ⚠️(주의)로 명확히 표시해줘. "
+                        f"약물 질문엔 반드시 전문의·약사 상담과 마더세이프(1588-7309)를 안내하고, 사진 속 약이라도 최종 판단은 전문가에게 맡기라고 해줘. "
+                        f"응급이 의심되는 증상(출혈, 파수, 태동 감소, 심한 두통 등)엔 즉시 병원 방문을 최우선으로 안내해줘. "
+                        f"답변 끝에 항상 이레 엄마를 응원하는 한마디를 덧붙여줘. "
+                        f"답변은 한국어로, 마크다운 형식으로 가독성 좋게 작성해줘."
+                    )
+                }
+                # 히스토리(텍스트) + 현재 메시지(사진 있으면 vision 형식)
+                api_messages = [sys_msg] + [
+                    {"role": m["role"], "content": m["content"]} for m in st.session_state.messages[:-1]
+                ]
+                if uploaded_img:
+                    img_b64 = base64.b64encode(uploaded_img.getvalue()).decode("utf-8")
+                    mime = "image/png" if uploaded_img.name.lower().endswith(".png") else "image/jpeg"
+                    api_messages.append({
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}},
+                        ],
+                    })
+                else:
+                    api_messages.append({"role": "user", "content": prompt})
+
+                try:
+                    res = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=api_messages,
+                        stream=True,
+                    )
+                    full_msg = st.write_stream(res)
+                except Exception as e:
+                    ai_usage_refund()  # 오류 시 횟수 차감 취소
+                    full_msg = f"⚠️ 답변 생성 중 오류가 발생했어요: {e}"
+                    st.error(full_msg)
+            st.session_state.messages.append({"role": "assistant", "content": full_msg})
+            st.rerun()  # 남은 횟수 표시 갱신
+
+        # 초기화·저장·잠금 버튼
+        bc1, bc2, bc3 = st.columns(3)
+        with bc1:
+            if st.button("🔄 대화 초기화", key="chat_reset"):
+                st.session_state.messages = [
+                    {"role": "assistant", "content": f"새로운 대화를 시작해요! 현재 {current_weeks}주차 이레 엄마, 무엇이든 물어보세요 🥰"}
+                ]
+                st.rerun()
+        with bc2:
+            if st.button("💾 대화 시트에 저장", key="chat_save"):
+                convo_text = "\n".join([f"[{m['role']}] {m['content']}" for m in st.session_state.messages])
+                if save_to_sheets("AI상담기록", convo_text[:4000]):
+                    st.toast("대화 저장 완료! 📊")
+                else:
+                    st.error("저장 실패 — 네트워크를 확인해 주세요.")
+        with bc3:
+            if st.button("🔒 다시 잠그기", key="ai_lock"):
+                st.session_state.ai_unlocked = False
+                st.rerun()
 
 # ──────────────────────────────────────────
 # TAB 7: 🚨 응급·진통 (행동 플로우 + 배뭉침 타이머)
@@ -1366,7 +1449,7 @@ with tab7:
 
     st.divider()
 
-    # ⏱️ 배뭉침 타이머 (기존 기능 이동)
+    # ⏱️ 배뭉침 타이머
     st.markdown("### ⏱️ 배뭉침(진통) 타이머")
     st.caption("💡 경과 시간은 버튼을 누를 때마다 갱신돼요. 진행 중 화면을 갱신하려면 '⏱️ 현재 시간 갱신'을 누르세요.")
 
@@ -1446,7 +1529,7 @@ with tab7:
             st.warning("⚠️ 간격이 좁아지고 있어요. 계속 관찰하세요.")
 
 # ──────────────────────────────────────────
-# TAB 8: 👨‍👩‍👧 휴가·휴직 (제도 요약 + 계산기) (NEW)
+# TAB 8: 👨‍👩‍👧 휴가·휴직 (제도 요약 + 계산기)
 # ──────────────────────────────────────────
 with tab8:
     st.markdown("### 👨‍👩‍👧 출산휴가·육아휴직 한눈에 보기")
@@ -1632,7 +1715,7 @@ with tab8:
 with tab9:
     st.markdown("### 📋 임신·출산 준비 도구")
 
-    # ── 1. 체중 트래커 (BMI 연동 개선) ──────
+    # ── 1. 체중 트래커 (BMI 연동) ──────
     st.markdown("#### ⚖️ 체중 트래커")
     wt1, wt2, wt3 = st.columns(3)
     with wt1:
@@ -1655,7 +1738,7 @@ with tab9:
     else:
         bmi_label, rec_min, rec_max = "비만", 5.0, 9.0
 
-    # 🔧 개선: 주차별 예상 범위를 BMI별 총 권장량과 연동
+    # 주차별 예상 범위를 BMI별 총 권장량과 연동
     # 1분기(~13주) 총 0.5~2kg 가정, 이후 잔여분을 40주까지 선형 배분
     FIRST_TRI_MIN, FIRST_TRI_MAX = 0.5, 2.0
     if current_weeks <= 13:
@@ -1692,7 +1775,7 @@ with tab9:
 
     st.divider()
 
-    # ── 2. 출산 준비물 체크리스트 (버그 수정) ─────────
+    # ── 2. 출산 준비물 체크리스트 ─────────
     st.markdown("#### 🎒 출산 준비물 체크리스트")
 
     total_items = sum(len(v) for v in CHECKLIST.values())
@@ -1717,7 +1800,7 @@ with tab9:
     cl1, cl2 = st.columns(2)
     with cl1:
         if st.button("✅ 전체 완료 표시", use_container_width=True):
-            # 🔧 버그 수정: 위젯 key를 직접 변경해야 화면에 반영됨
+            # 위젯 key를 직접 변경해야 화면에 반영됨
             for category, items in CHECKLIST.items():
                 for item in items:
                     st.session_state[f"chk_{category}_{item}"] = True
@@ -1731,7 +1814,7 @@ with tab9:
 
     st.divider()
 
-    # ── 3. 🏛️ 정부 지원·행정 절차 (NEW) ─────
+    # ── 3. 🏛️ 정부 지원·행정 절차 ─────
     st.markdown("#### 🏛️ 정부 지원금·행정 절차 체크")
     st.markdown("""
     <div class="card card-orange" style="margin-bottom:12px;">
@@ -1757,7 +1840,7 @@ with tab9:
 
     st.divider()
 
-    # ── 4. 💗 엄마 마음 체크 (NEW) ───────────
+    # ── 4. 💗 엄마 마음 체크 ───────────
     st.markdown("#### 💗 엄마 마음 체크")
     st.markdown("""
     <div class="card card-purple" style="margin-bottom:12px;">
@@ -1796,7 +1879,7 @@ with tab9:
 
     st.divider()
 
-    # ── 5. 📱 홈 화면에 앱처럼 추가하기 (NEW) ─
+    # ── 5. 📱 홈 화면에 앱처럼 추가하기 ─
     with st.expander("📱 이 앱을 휴대폰 홈 화면에 추가하기"):
         st.markdown("""
 **아이폰 (Safari)**
