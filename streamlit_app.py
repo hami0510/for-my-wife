@@ -686,8 +686,9 @@ with st.sidebar:
     verse, ref = bible_list[day_index]
     st.markdown(f'<div class="bible-box">"{verse}"<span class="bible-ref">— {ref} —</span></div>', unsafe_allow_html=True)
 
-    lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 3, 15).date())
-    due_date = lmp_date + timedelta(days=280)
+    # 🔧 변경: 출산 예정일 직접 입력 (병원 안내 예정일 기준) → LMP 자동 역산
+    due_date = st.date_input("출산 예정일", datetime(2026, 12, 7).date())
+    lmp_date = due_date - timedelta(days=280)
     total_days = max(0, (today_date - lmp_date).days)
     current_weeks, current_days_rem = total_days // 7, total_days % 7
     d_day = (due_date - today_date).days
@@ -756,7 +757,23 @@ with st.sidebar:
                 st.rerun()
 
     st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
-    st.link_button("📊 태교 편지 보러가기", REAL_SHEET_URL)
+
+    # 🔧 변경: 태교 편지 보러가기 — 비밀번호 잠금
+    if "letter_unlocked" not in st.session_state:
+        st.session_state.letter_unlocked = False
+
+    if st.session_state.letter_unlocked:
+        st.link_button("📊 태교 편지 보러가기", REAL_SHEET_URL)
+    else:
+        with st.expander("🔒 태교 편지 보러가기"):
+            pw = st.text_input("비밀번호", type="password", key="letter_pw")
+            if st.button("확인", key="pw_btn"):
+                if pw == st.secrets["LETTER_PASSWORD"]:
+                    st.session_state.letter_unlocked = True
+                    st.rerun()
+                else:
+                    st.error("비밀번호가 맞지 않아요 🥲")
+
     st.divider()
     st.markdown("<div style='text-align:center; color:#ff6b6b; font-weight:800; font-size:0.9rem;'>📞 마더세이프 1588-7309</div>", unsafe_allow_html=True)
     st.markdown("<div style='text-align:center; color:#888; font-size:0.78rem; margin-top:4px;'>임신·수유 중 약물 안전 상담</div>", unsafe_allow_html=True)
