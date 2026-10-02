@@ -687,8 +687,8 @@ with st.sidebar:
     st.markdown(f'<div class="bible-box">"{verse}"<span class="bible-ref">— {ref} —</span></div>', unsafe_allow_html=True)
 
     # 🔧 변경: 출산 예정일 직접 입력 (병원 안내 예정일 기준) → LMP 자동 역산
+    lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 3, 15).date())
     due_date = st.date_input("출산 예정일", datetime(2026, 12, 7).date())
-    lmp_date = due_date - timedelta(days=280)
     total_days = max(0, (today_date - lmp_date).days)
     current_weeks, current_days_rem = total_days // 7, total_days % 7
     d_day = (due_date - today_date).days
