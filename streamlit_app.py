@@ -118,7 +118,7 @@ with st.sidebar:
     st.markdown(f'<div class="bible-box">"{verse}"<span class="bible-ref">- {ref} -</span></div>', unsafe_allow_html=True)
 
     # 마지막 생리일 입력
-    lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 3, 15).date())
+    lmp_date = st.date_input("마지막 생리 시작일(LMP)", datetime(2026, 3, 2).date())
     
     # 주차 계산
     due_date = lmp_date + timedelta(days=280)
