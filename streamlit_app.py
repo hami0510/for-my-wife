@@ -321,7 +321,7 @@ FOOD_GUIDE = {
 }
 
 # ==========================================
-# 💊 약물 안전 가이드 (NEW)
+# 💊 약물 안전 가이드
 # ※ 아래 분류는 일반적으로 알려진 정보이며, 실제 복용은
 #   반드시 산부인과 전문의·약사 또는 마더세이프(1588-7309) 상담 후 결정하세요.
 # ==========================================
@@ -358,7 +358,7 @@ DRUG_GUIDE = {
 }
 
 # ==========================================
-# 🚨 응급 상황 행동 플로우 (NEW)
+# 🚨 응급 상황 행동 플로우
 # ==========================================
 EMERGENCY_FLOW = [
     {
@@ -421,7 +421,7 @@ EMERGENCY_FLOW = [
 ]
 
 # ==========================================
-# 🎉 마일스톤 (NEW) — 주차 기준
+# 🎉 마일스톤 — 주차 기준
 # ==========================================
 MILESTONES = [
     (12, "1차 기형아 검사 마감 주간"),
@@ -436,7 +436,7 @@ MILESTONES = [
 ]
 
 # ==========================================
-# 🏛️ 정부 지원·행정 절차 (NEW)
+# 🏛️ 정부 지원·행정 절차
 # ※ 지원 금액·조건은 매년 변경됩니다. 반드시 정부24·복지로에서 최신 기준을 확인하세요.
 # ==========================================
 GOV_SUPPORT = [
@@ -451,7 +451,7 @@ GOV_SUPPORT = [
 ]
 
 # ==========================================
-# 👨‍👩‍👧 출산휴가·육아휴직 제도 데이터 (NEW)
+# 👨‍👩‍👧 출산휴가·육아휴직 제도 데이터
 # ※ 2026-07 기준. 급여 상한액은 '출산전후휴가 급여등 상한액 고시'(고용노동부 고시,
 #   2026.1.1 시행) 및 고용보험법령 기준. 매년 변경되므로 고용24(work24.go.kr)에서
 #   최신 기준·모의계산 확인 필수. 회사 취업규칙에 법정 기준 이상의 규정이 있을 수 있음.
@@ -668,7 +668,6 @@ CHECKLIST = {
         "출생신고 준비 메모",
     ],
 }
-
 # ==========================================
 # 시간 계산 (KST)
 # ==========================================
@@ -720,6 +719,76 @@ def ai_usage_refund():
         store["count"] = max(0, store["count"] - 1)
 
 # ==========================================
+# 🗄️ Supabase 연동 (REST) — 가족 공유 기록 저장소  [NEW]
+# ==========================================
+SUPABASE_URL = (get_secret("SUPABASE_URL") or "").rstrip("/")
+SUPABASE_KEY = get_secret("SUPABASE_KEY") or ""
+
+def sb_ready():
+    return bool(SUPABASE_URL and SUPABASE_KEY)
+
+def _sb_headers(extra=None):
+    h = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    if extra:
+        h.update(extra)
+    return h
+
+def sb_insert(table, row):
+    """한 줄 저장. 성공 여부(bool) 반환."""
+    if not sb_ready():
+        return False
+    try:
+        r = requests.post(
+            f"{SUPABASE_URL}/rest/v1/{table}",
+            headers=_sb_headers({"Prefer": "return=minimal"}),
+            data=json.dumps(row), timeout=10,
+        )
+        return r.status_code in (200, 201, 204)
+    except Exception:
+        return False
+
+def sb_delete(table, row_id):
+    if not sb_ready():
+        return False
+    try:
+        r = requests.delete(
+            f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{int(row_id)}",
+            headers=_sb_headers(), timeout=10,
+        )
+        return r.status_code in (200, 204)
+    except Exception:
+        return False
+
+@st.cache_data(ttl=10, show_spinner=False)
+def sb_fetch_baby_log(days=7):
+    """최근 N일 육아 로그 (최신순). 10초 캐시 → 저장 직후엔 .clear() 호출."""
+    if not sb_ready():
+        return []
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/irae_baby_log",
+            headers=_sb_headers(),
+            params={"select": "id,kind,recorder,logged_at",
+                    "logged_at": f"gte.{since}",
+                    "order": "logged_at.desc", "limit": "500"},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return []
+        rows = []
+        for x in r.json():
+            t = datetime.fromisoformat(x["logged_at"].replace("Z", "+00:00")).astimezone(KST)
+            rows.append({"id": x["id"], "kind": x["kind"], "recorder": x["recorder"], "time": t})
+        return rows
+    except Exception:
+        return []
+
+# ==========================================
 # 사이드바
 # ==========================================
 with st.sidebar:
@@ -746,6 +815,9 @@ with st.sidebar:
         <span style="font-size:0.8rem; color:#aaa;">예정일: {due_date.strftime("%Y.%m.%d")}</span>
     </div>
     """, unsafe_allow_html=True)
+
+    # 👤 기록자 선택 (육아 로그 공유용)  [NEW]
+    st.selectbox("👤 지금 쓰는 사람", ["엄마", "아빠"], key="recorder")
 
     # 🎉 다가오는 마일스톤
     upcoming = [(w, label) for (w, label) in MILESTONES if w > current_weeks][:2]
@@ -1149,9 +1221,8 @@ with tab4:
             <div>{badges}</div>
         </div>
         """, unsafe_allow_html=True)
-
-# ──────────────────────────────────────────
-# TAB 5: 육아 백과 + 육아 로그
+            # ──────────────────────────────────────────
+# TAB 5: 육아 백과 + 육아 로그 (Supabase 공유)  [변경]
 # ──────────────────────────────────────────
 with tab5:
     st.markdown("### 👶 월령별 육아 백과 (0~24개월)")
@@ -1160,49 +1231,77 @@ with tab5:
 
     # 🍼 육아 로그 — 출산 후 자동 강조
     with st.expander("🍼 육아 로그 (수유·기저귀·수면 기록)", expanded=baby_mode):
-        st.caption("버튼 한 번으로 기록! 시트에도 함께 저장됩니다. (화면 목록은 이번 세션 기준)")
+        use_db = sb_ready()
+        if use_db:
+            st.caption("버튼 한 번으로 기록! 엄마·아빠 폰에 **실시간 공유**되고, 새로고침해도 남아요. (최근 7일)")
+        else:
+            st.caption("⚠️ Supabase 미연결 — 이번 세션에만 보관돼요. (Secrets에 SUPABASE_URL / SUPABASE_KEY 설정)")
+
         if "baby_log" not in st.session_state:
             st.session_state.baby_log = []
 
+        who = st.session_state.get("recorder", "미지정")
+
         def add_baby_log(kind):
-            entry = {"kind": kind, "time": datetime.now(KST)}
-            st.session_state.baby_log.append(entry)
-            save_to_sheets("육아로그", kind, entry["time"].strftime("%Y-%m-%d %H:%M"))
+            t = datetime.now(KST)
+            if use_db:
+                ok = sb_insert("irae_baby_log", {"kind": kind, "recorder": who, "logged_at": t.isoformat()})
+                sb_fetch_baby_log.clear()
+                if not ok:
+                    st.error("저장 실패 — 네트워크·키 설정을 확인해 주세요.")
+            else:
+                st.session_state.baby_log.append({"id": None, "kind": kind, "recorder": who, "time": t})
+            save_to_sheets("육아로그", f"{kind} ({who})", t.strftime("%Y-%m-%d %H:%M"))  # 시트 백업
 
         bl1, bl2, bl3, bl4 = st.columns(4)
         with bl1:
             if st.button("🍼 수유", key="log_feed"):
-                add_baby_log("수유")
-                st.rerun()
+                add_baby_log("수유"); st.rerun()
         with bl2:
             if st.button("💩 기저귀", key="log_diaper"):
-                add_baby_log("기저귀")
-                st.rerun()
+                add_baby_log("기저귀"); st.rerun()
         with bl3:
             if st.button("😴 잠들었어요", key="log_sleep"):
-                add_baby_log("수면시작")
-                st.rerun()
+                add_baby_log("수면시작"); st.rerun()
         with bl4:
             if st.button("🌞 깼어요", key="log_wake"):
-                add_baby_log("기상")
-                st.rerun()
+                add_baby_log("기상"); st.rerun()
 
-        last_feed = next((e for e in reversed(st.session_state.baby_log) if e["kind"] == "수유"), None)
+        # 기록 불러오기 (최신순)
+        entries = sb_fetch_baby_log() if use_db else st.session_state.baby_log[::-1]
+
+        last_feed = next((e for e in entries if e["kind"] == "수유"), None)
         if last_feed:
             mins = int((datetime.now(KST) - last_feed["time"]).total_seconds() // 60)
-            st.markdown(f"<div style='text-align:center; font-size:1.1rem;'>마지막 수유: <b style='color:#ff6b6b;'>{mins}분 전</b> ({last_feed['time'].strftime('%H:%M')})</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div style='text-align:center; font-size:1.1rem;'>마지막 수유: "
+                f"<b style='color:#ff6b6b;'>{mins}분 전</b> "
+                f"({last_feed['time'].strftime('%H:%M')} · {last_feed['recorder']})</div>",
+                unsafe_allow_html=True,
+            )
 
-        if st.session_state.baby_log:
-            today_log = [e for e in st.session_state.baby_log if e["time"].date() == today_date]
-            feed_n = sum(1 for e in today_log if e["kind"] == "수유")
+        if entries:
+            today_log = [e for e in entries if e["time"].date() == today_date]
+            feeds = sorted([e["time"] for e in today_log if e["kind"] == "수유"])
+            feed_n = len(feeds)
             diaper_n = sum(1 for e in today_log if e["kind"] == "기저귀")
-            st.caption(f"오늘: 수유 {feed_n}회 · 기저귀 {diaper_n}회")
+            gaps = [(b - a).total_seconds() / 3600 for a, b in zip(feeds, feeds[1:])]
+            avg_gap = f" · 평균 수유 간격 {sum(gaps)/len(gaps):.1f}시간" if gaps else ""
+            st.caption(f"오늘: 수유 {feed_n}회 · 기저귀 {diaper_n}회{avg_gap}")
+
             st.markdown("**최근 기록**")
-            for e in st.session_state.baby_log[-8:][::-1]:
-                st.markdown(f"- {e['time'].strftime('%H:%M')} — {e['kind']}")
-            if st.button("🗑️ 로그 초기화", key="log_clear"):
-                st.session_state.baby_log = []
-                st.rerun()
+            for e in entries[:10]:
+                st.markdown(f"- {e['time'].strftime('%m/%d %H:%M')} — {e['kind']} ({e['recorder']})")
+
+            # 잘못 누른 마지막 기록 취소
+            if entries[0].get("id") is not None or not use_db:
+                if st.button("↩️ 방금 기록 취소", key="log_undo"):
+                    if use_db:
+                        sb_delete("irae_baby_log", entries[0]["id"])
+                        sb_fetch_baby_log.clear()
+                    else:
+                        st.session_state.baby_log.pop()
+                    st.rerun()
 
     st.markdown("<p style='color:#888;'>이레가 태어난 후 월령별 발달·수유·수면·주의사항을 한눈에 확인하세요.</p>", unsafe_allow_html=True)
 
